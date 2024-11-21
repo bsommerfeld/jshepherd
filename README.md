@@ -20,8 +20,8 @@ With coma you can automatically create and migrate config files without having t
 </repositories>
 
 <dependency>
-    <groupId>com.github.godcipher</groupId>
-    <artifactId>gutil</artifactId>
+    <groupId>com.github.metaphoriker</groupId>
+    <artifactId>coma</artifactId>
     <version>VERSION</version>
 </dependency>
 ```
@@ -36,7 +36,7 @@ allprojects {
 }
 
 dependencies {
-    implementation 'com.github.godcipher:gutil:VERSION'
+    implementation 'com.github.metaphoriker:coma:VERSION'
 }
 ```
 
