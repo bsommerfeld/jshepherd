@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface ConfigValue {
+public @interface ConfigurationValue {
   /** The name of the configuration value inside the configuration file. */
   String name() default "";
 

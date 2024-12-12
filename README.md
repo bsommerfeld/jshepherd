@@ -47,7 +47,7 @@ otherwise the default values are used for first generation.
 
 ```java
 import de.metaphoriker.coma.BaseConfiguration;
-import de.metaphoriker.coma.annotation.ConfigValue;
+import de.metaphoriker.coma.annotation.ConfigurationValue;
 import de.metaphoriker.coma.annotation.Configuration;
 
 import java.util.List;
@@ -55,25 +55,25 @@ import java.util.List;
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
 class TestConfiguration extends BaseConfiguration {
 
-    @ConfigValue(name = "test-string", description = "Test string configuration")
+    @ConfigurationValue(name = "test-string", description = "Test string configuration")
     private String testString = "defaultValue";
 
-    @ConfigValue(name = "test-int", description = "Test integer configuration")
+    @ConfigurationValue(name = "test-int", description = "Test integer configuration")
     private int testInt = 123;
 
-    @ConfigValue(name = "test-double", description = {"Test double configuration", "Multi-line comment!"})
+    @ConfigurationValue(name = "test-double", description = {"Test double configuration", "Multi-line comment!"})
     private double testDouble = 123.456;
 
-    @ConfigValue(name = "test-long", description = "Test long configuration")
+    @ConfigurationValue(name = "test-long", description = "Test long configuration")
     private long testLong = 1234567890L;
 
-    @ConfigValue(name = "test-float", description = "Test float configuration")
+    @ConfigurationValue(name = "test-float", description = "Test float configuration")
     private float testFloat = 123.456f;
 
-    @ConfigValue(name = "test-list", description = "Test list configuration")
+    @ConfigurationValue(name = "test-list", description = "Test list configuration")
     private List<String> testList = List.of("item1", "item2", "item3");
 
-    @ConfigValue(name = "test-boolean", description = "Test boolean configuration")
+    @ConfigurationValue(name = "test-boolean", description = "Test boolean configuration")
     private boolean testBoolean = true;
 }
 ```

@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface ConfigHeader {
+public @interface ConfigurationHeader {
   /**
    * Defines the lines of the header to be included in the configuration file. Each line will be
    * treated as a comment in the configuration file.

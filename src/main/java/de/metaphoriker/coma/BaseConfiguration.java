@@ -2,9 +2,10 @@ package de.metaphoriker.coma;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import de.metaphoriker.coma.annotation.ConfigHeader;
-import de.metaphoriker.coma.annotation.ConfigValue;
+import de.metaphoriker.coma.annotation.ConfigurationHeader;
+import de.metaphoriker.coma.annotation.ConfigurationValue;
 import de.metaphoriker.coma.annotation.Configuration;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -156,7 +157,7 @@ public abstract class BaseConfiguration {
    * Synchronizes the current field values with the configuration options.
    *
    * <p>This method iterates over the fields of the current class and its superclasses. For each
-   * field annotated with {@link ConfigValue}, the current field value is retrieved using reflection
+   * field annotated with {@link ConfigurationValue}, the current field value is retrieved using reflection
    * and the corresponding entry in the {@code configOptions} map is updated with this value.
    *
    * @throws IllegalAccessException if the field values cannot be accessed via reflection.
@@ -165,13 +166,13 @@ public abstract class BaseConfiguration {
     List<Class<?>> classHierarchy = getClassHierarchy();
     for (Class<?> clazz : classHierarchy) {
       for (Field field : clazz.getDeclaredFields()) {
-        ConfigValue configValueAnnotation = field.getAnnotation(ConfigValue.class);
-        if (configValueAnnotation != null) {
+        ConfigurationValue configurationValueAnnotation = field.getAnnotation(ConfigurationValue.class);
+        if (configurationValueAnnotation != null) {
           field.setAccessible(true);
           Object fieldValue = field.get(this);
           ConfigurationOption<?> option =
-              new ConfigurationOption<>(fieldValue, configValueAnnotation.description());
-          configOptions.put(configValueAnnotation.name(), option);
+              new ConfigurationOption<>(fieldValue, configurationValueAnnotation.description());
+          configOptions.put(configurationValueAnnotation.name(), option);
         }
       }
     }
@@ -207,9 +208,9 @@ public abstract class BaseConfiguration {
   /** Processes all fields in a class that are annotated with @ConfigValue. */
   private void processClassFields(Class<?> clazz) {
     for (Field field : clazz.getDeclaredFields()) {
-      ConfigValue configValueAnnotation = field.getAnnotation(ConfigValue.class);
-      if (configValueAnnotation != null) {
-        processField(field, configValueAnnotation);
+      ConfigurationValue configurationValueAnnotation = field.getAnnotation(ConfigurationValue.class);
+      if (configurationValueAnnotation != null) {
+        processField(field, configurationValueAnnotation);
       }
     }
   }
@@ -218,16 +219,16 @@ public abstract class BaseConfiguration {
    * Process an individual field that is annotated with @ConfigValue.
    *
    * @param field The field to process.
-   * @param configValueAnnotation The annotation instance for this field.
+   * @param configurationValueAnnotation The annotation instance for this field.
    */
-  private void processField(Field field, ConfigValue configValueAnnotation) {
-    String key = configValueAnnotation.name();
+  private void processField(Field field, ConfigurationValue configurationValueAnnotation) {
+    String key = configurationValueAnnotation.name();
     field.setAccessible(true);
     try {
       if (properties.containsKey(key)) {
-        processExistingProperty(field, key, configValueAnnotation);
+        processExistingProperty(field, key, configurationValueAnnotation);
       } else {
-        processDefaultValue(field, key, configValueAnnotation);
+        processDefaultValue(field, key, configurationValueAnnotation);
       }
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Unable to access field: " + field.getName(), e);
@@ -238,12 +239,12 @@ public abstract class BaseConfiguration {
    * Processes a field that has a corresponding key in the properties file. Assigns the property
    * value to the field and creates a ConfigurationOption.
    */
-  private void processExistingProperty(Field field, String key, ConfigValue configValueAnnotation)
+  private void processExistingProperty(Field field, String key, ConfigurationValue configurationValueAnnotation)
       throws IllegalAccessException {
     String newValue = properties.getProperty(key);
     assignNewValue(field, newValue);
     ConfigurationOption<?> option =
-        new ConfigurationOption<>(field.get(this), configValueAnnotation.description());
+        new ConfigurationOption<>(field.get(this), configurationValueAnnotation.description());
     setConfigOption(key, option);
   }
 
@@ -251,14 +252,14 @@ public abstract class BaseConfiguration {
    * Processes a field that does not have a corresponding key in the properties file. Uses the
    * current field value or a default value to create a ConfigurationOption.
    */
-  private void processDefaultValue(Field field, String key, ConfigValue configValueAnnotation)
+  private void processDefaultValue(Field field, String key, ConfigurationValue configurationValueAnnotation)
       throws IllegalAccessException {
     Object fieldValue = field.get(this);
     ConfigurationOption<?> option;
     if (fieldValue != null) {
-      option = new ConfigurationOption<>(fieldValue, configValueAnnotation.description());
+      option = new ConfigurationOption<>(fieldValue, configurationValueAnnotation.description());
     } else {
-      option = new ConfigurationOption<>("", configValueAnnotation.description());
+      option = new ConfigurationOption<>("", configurationValueAnnotation.description());
     }
     setConfigOption(key, option);
   }
@@ -283,7 +284,7 @@ public abstract class BaseConfiguration {
    * @param writer The PrintWriter to write the header to the file.
    */
   private void writeConfigHeader(PrintWriter writer) {
-    ConfigHeader headerAnnotation = this.getClass().getAnnotation(ConfigHeader.class);
+    ConfigurationHeader headerAnnotation = this.getClass().getAnnotation(ConfigurationHeader.class);
     if (headerAnnotation != null) {
       String[] headerLines = headerAnnotation.value();
       for (String line : headerLines) {

@@ -2,11 +2,12 @@ package de.metaphoriker.coma;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import de.metaphoriker.coma.annotation.ConfigValue;
+import de.metaphoriker.coma.annotation.ConfigurationValue;
 import de.metaphoriker.coma.annotation.Configuration;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ class BaseConfigurationTest {
   }
 
   public abstract class ParentConfig extends BaseConfiguration {
-    @ConfigValue(name = "parent-field", description = "Field from parent class")
+    @ConfigurationValue(name = "parent-field", description = "Field from parent class")
     private int parentField = 1;
 
     protected int getParentField() {
@@ -57,14 +58,14 @@ class BaseConfigurationTest {
 
   @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
   public class ChildConfig extends ParentConfig {
-    @ConfigValue(name = "child-field", description = "Field from child class")
+    @ConfigurationValue(name = "child-field", description = "Field from child class")
     private String childField = "childValue";
   }
 
   // Test abstract class with the @Configuration annotation
   @Configuration(fileName = "abstract-config", type = ConfigurationType.YAML)
   public abstract static class AbstractConfigClass extends BaseConfiguration {
-    @ConfigValue(name = "abstract-field", description = "Field from abstract class")
+    @ConfigurationValue(name = "abstract-field", description = "Field from abstract class")
     private String abstractField = "abstractValue";
   }
 
