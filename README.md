@@ -46,12 +46,6 @@ Here is a simple test configuration. The values are automatically loaded from th
 otherwise the default values are used for first generation.
 
 ```java
-import de.metaphoriker.coma.annotation.Comment;
-import de.metaphoriker.coma.annotation.Configuration;
-import de.metaphoriker.coma.annotation.Key;
-
-import java.util.List;
-
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
 class TestConfiguration {
 
