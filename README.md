@@ -47,7 +47,7 @@ otherwise the default values are used for first generation.
 
 ```java
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
-class TestConfiguration {
+class TestConfiguration extends BaseConfiguration {
 
     @Key("test-string")
     @Comment("Test string configuration")
