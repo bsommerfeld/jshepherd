@@ -2,8 +2,8 @@ package de.metaphoriker.coma;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import de.metaphoriker.coma.annotation.ConfigurationHeader;
-import de.metaphoriker.coma.annotation.ConfigurationValue;
+import de.metaphoriker.coma.annotation.Comment;
+import de.metaphoriker.coma.annotation.Key;
 import de.metaphoriker.coma.annotation.Configuration;
 
 import java.io.File;
@@ -96,8 +96,8 @@ public abstract class BaseConfiguration {
    */
   private String getFilePath(Configuration configuration, String[] directory) {
     return directory.length > 0
-        ? new File(directory[0], configuration.fileName()).getPath()
-        : configuration.fileName();
+            ? new File(directory[0], configuration.fileName()).getPath()
+            : configuration.fileName();
   }
 
   /**
@@ -157,7 +157,7 @@ public abstract class BaseConfiguration {
    * Synchronizes the current field values with the configuration options.
    *
    * <p>This method iterates over the fields of the current class and its superclasses. For each
-   * field annotated with {@link ConfigurationValue}, the current field value is retrieved using reflection
+   * field annotated with {@link Key}, the current field value is retrieved using reflection
    * and the corresponding entry in the {@code configOptions} map is updated with this value.
    *
    * @throws IllegalAccessException if the field values cannot be accessed via reflection.
@@ -166,21 +166,32 @@ public abstract class BaseConfiguration {
     List<Class<?>> classHierarchy = getClassHierarchy();
     for (Class<?> clazz : classHierarchy) {
       for (Field field : clazz.getDeclaredFields()) {
-        ConfigurationValue configurationValueAnnotation = field.getAnnotation(ConfigurationValue.class);
-        if (configurationValueAnnotation != null) {
+        Key keyAnnotation = field.getAnnotation(Key.class);
+        if (keyAnnotation != null) {
           field.setAccessible(true);
           Object fieldValue = field.get(this);
-          ConfigurationOption<?> option =
-              new ConfigurationOption<>(fieldValue, configurationValueAnnotation.description());
-          configOptions.put(configurationValueAnnotation.name(), option);
+          String[] comments = getCommentsForField(field);
+          ConfigurationOption<?> option = new ConfigurationOption<>(fieldValue, comments);
+          configOptions.put(keyAnnotation.value(), option);
         }
       }
     }
   }
 
   /**
+   * Retrieves the comments for a given field from the {@link Comment} annotation.
+   *
+   * @param field The field to retrieve comments from.
+   * @return An array of comments or an empty array if no comments are found.
+   */
+  private String[] getCommentsForField(Field field) {
+    Comment commentAnnotation = field.getAnnotation(Comment.class);
+    return commentAnnotation != null ? commentAnnotation.value() : new String[0];
+  }
+
+  /**
    * Loads configuration values from the properties file and updates internal options. Scans the
-   * class for fields annotated with @ConfigValue and updates their values.
+   * class for fields annotated with @Key and updates their values.
    */
   private void loadConfigValues() {
     List<Class<?>> classHierarchy = getClassHierarchy();
@@ -205,30 +216,30 @@ public abstract class BaseConfiguration {
     return classHierarchy;
   }
 
-  /** Processes all fields in a class that are annotated with @ConfigValue. */
+  /** Processes all fields in a class that are annotated with @Key. */
   private void processClassFields(Class<?> clazz) {
     for (Field field : clazz.getDeclaredFields()) {
-      ConfigurationValue configurationValueAnnotation = field.getAnnotation(ConfigurationValue.class);
-      if (configurationValueAnnotation != null) {
-        processField(field, configurationValueAnnotation);
+      Key keyAnnotation = field.getAnnotation(Key.class);
+      if (keyAnnotation != null) {
+        processField(field, keyAnnotation);
       }
     }
   }
 
   /**
-   * Process an individual field that is annotated with @ConfigValue.
+   * Process an individual field that is annotated with @Key.
    *
    * @param field The field to process.
-   * @param configurationValueAnnotation The annotation instance for this field.
+   * @param keyAnnotation The annotation instance for this field.
    */
-  private void processField(Field field, ConfigurationValue configurationValueAnnotation) {
-    String key = configurationValueAnnotation.name();
+  private void processField(Field field, Key keyAnnotation) {
+    String key = keyAnnotation.value();
     field.setAccessible(true);
     try {
       if (properties.containsKey(key)) {
-        processExistingProperty(field, key, configurationValueAnnotation);
+        processExistingProperty(field, key, keyAnnotation);
       } else {
-        processDefaultValue(field, key, configurationValueAnnotation);
+        processDefaultValue(field, key, keyAnnotation);
       }
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Unable to access field: " + field.getName(), e);
@@ -239,12 +250,12 @@ public abstract class BaseConfiguration {
    * Processes a field that has a corresponding key in the properties file. Assigns the property
    * value to the field and creates a ConfigurationOption.
    */
-  private void processExistingProperty(Field field, String key, ConfigurationValue configurationValueAnnotation)
-      throws IllegalAccessException {
+  private void processExistingProperty(Field field, String key, Key keyAnnotation)
+          throws IllegalAccessException {
     String newValue = properties.getProperty(key);
     assignNewValue(field, newValue);
-    ConfigurationOption<?> option =
-        new ConfigurationOption<>(field.get(this), configurationValueAnnotation.description());
+    String[] comments = getCommentsForField(field);
+    ConfigurationOption<?> option = new ConfigurationOption<>(field.get(this), comments);
     setConfigOption(key, option);
   }
 
@@ -252,14 +263,15 @@ public abstract class BaseConfiguration {
    * Processes a field that does not have a corresponding key in the properties file. Uses the
    * current field value or a default value to create a ConfigurationOption.
    */
-  private void processDefaultValue(Field field, String key, ConfigurationValue configurationValueAnnotation)
-      throws IllegalAccessException {
+  private void processDefaultValue(Field field, String key, Key keyAnnotation)
+          throws IllegalAccessException {
     Object fieldValue = field.get(this);
+    String[] comments = getCommentsForField(field);
     ConfigurationOption<?> option;
     if (fieldValue != null) {
-      option = new ConfigurationOption<>(fieldValue, configurationValueAnnotation.description());
+      option = new ConfigurationOption<>(fieldValue, comments);
     } else {
-      option = new ConfigurationOption<>("", configurationValueAnnotation.description());
+      option = new ConfigurationOption<>("", comments);
     }
     setConfigOption(key, option);
   }
@@ -278,13 +290,13 @@ public abstract class BaseConfiguration {
   }
 
   /**
-   * Writes the header for the configuration file from the @ConfigHeader annotation if present.
-   * Otherwise, writes a default header.
+   * Writes the header for the configuration file from the @Comment annotation if present. Otherwise,
+   * writes a default header.
    *
    * @param writer The PrintWriter to write the header to the file.
    */
   private void writeConfigHeader(PrintWriter writer) {
-    ConfigurationHeader headerAnnotation = this.getClass().getAnnotation(ConfigurationHeader.class);
+    Comment headerAnnotation = this.getClass().getAnnotation(Comment.class);
     if (headerAnnotation != null) {
       String[] headerLines = headerAnnotation.value();
       for (String line : headerLines) {
@@ -372,7 +384,7 @@ public abstract class BaseConfiguration {
       field.set(this, value);
     } catch (JsonSyntaxException e) {
       throw new IllegalArgumentException(
-          "Unable to parse the configuration value for field: " + field.getName(), e);
+              "Unable to parse the configuration value for field: " + field.getName(), e);
     }
   }
 

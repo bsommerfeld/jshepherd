@@ -2,7 +2,8 @@ package de.metaphoriker.coma;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import de.metaphoriker.coma.annotation.ConfigurationValue;
+import de.metaphoriker.coma.annotation.Comment;
+import de.metaphoriker.coma.annotation.Key;
 import de.metaphoriker.coma.annotation.Configuration;
 import java.io.File;
 import java.lang.reflect.Field;
@@ -23,11 +24,11 @@ class BaseConfigurationTest {
   @Test
   void testAbstractClassCannotHaveConfigurationAnnotation() {
     assertThrows(
-        IllegalStateException.class,
-        () -> {
-          new AbstractConfigClass() {}.initialize();
-        },
-        "Abstract class should not be able to have the @Configuration annotation.");
+            IllegalStateException.class,
+            () -> {
+              new AbstractConfigClass() {}.initialize();
+            },
+            "Abstract class should not be able to have the @Configuration annotation.");
   }
 
   @Test
@@ -48,7 +49,8 @@ class BaseConfigurationTest {
   }
 
   public abstract class ParentConfig extends BaseConfiguration {
-    @ConfigurationValue(name = "parent-field", description = "Field from parent class")
+    @Key("parent-field")
+    @Comment("Field from parent class")
     private int parentField = 1;
 
     protected int getParentField() {
@@ -58,14 +60,16 @@ class BaseConfigurationTest {
 
   @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
   public class ChildConfig extends ParentConfig {
-    @ConfigurationValue(name = "child-field", description = "Field from child class")
+    @Key("child-field")
+    @Comment("Field from child class")
     private String childField = "childValue";
   }
 
   // Test abstract class with the @Configuration annotation
   @Configuration(fileName = "abstract-config", type = ConfigurationType.YAML)
   public abstract static class AbstractConfigClass extends BaseConfiguration {
-    @ConfigurationValue(name = "abstract-field", description = "Field from abstract class")
+    @Key("abstract-field")
+    @Comment("Field from abstract class")
     private String abstractField = "abstractValue";
   }
 

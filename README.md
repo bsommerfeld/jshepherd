@@ -47,7 +47,7 @@ otherwise the default values are used for first generation.
 
 ```java
 import de.metaphoriker.coma.BaseConfiguration;
-import de.metaphoriker.coma.annotation.ConfigurationValue;
+import de.metaphoriker.coma.annotation.Key;
 import de.metaphoriker.coma.annotation.Configuration;
 
 import java.util.List;
@@ -55,25 +55,25 @@ import java.util.List;
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
 class TestConfiguration extends BaseConfiguration {
 
-    @ConfigurationValue(name = "test-string", description = "Test string configuration")
+    @Key(name = "test-string", description = "Test string configuration")
     private String testString = "defaultValue";
 
-    @ConfigurationValue(name = "test-int", description = "Test integer configuration")
+    @Key(name = "test-int", description = "Test integer configuration")
     private int testInt = 123;
 
-    @ConfigurationValue(name = "test-double", description = {"Test double configuration", "Multi-line comment!"})
+    @Key(name = "test-double", description = {"Test double configuration", "Multi-line comment!"})
     private double testDouble = 123.456;
 
-    @ConfigurationValue(name = "test-long", description = "Test long configuration")
+    @Key(name = "test-long", description = "Test long configuration")
     private long testLong = 1234567890L;
 
-    @ConfigurationValue(name = "test-float", description = "Test float configuration")
+    @Key(name = "test-float", description = "Test float configuration")
     private float testFloat = 123.456f;
 
-    @ConfigurationValue(name = "test-list", description = "Test list configuration")
+    @Key(name = "test-list", description = "Test list configuration")
     private List<String> testList = List.of("item1", "item2", "item3");
 
-    @ConfigurationValue(name = "test-boolean", description = "Test boolean configuration")
+    @Key(name = "test-boolean", description = "Test boolean configuration")
     private boolean testBoolean = true;
 }
 ```
