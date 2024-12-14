@@ -46,34 +46,41 @@ Here is a simple test configuration. The values are automatically loaded from th
 otherwise the default values are used for first generation.
 
 ```java
-import de.metaphoriker.coma.BaseConfiguration;
-import de.metaphoriker.coma.annotation.Key;
+import de.metaphoriker.coma.annotation.Comment;
 import de.metaphoriker.coma.annotation.Configuration;
+import de.metaphoriker.coma.annotation.Key;
 
 import java.util.List;
 
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
-class TestConfiguration extends BaseConfiguration {
+class TestConfiguration {
 
-    @Key(name = "test-string", description = "Test string configuration")
+    @Key("test-string")
+    @Comment("Test string configuration")
     private String testString = "defaultValue";
 
-    @Key(name = "test-int", description = "Test integer configuration")
+    @Key("test-int")
+    @Comment("Test integer configuration")
     private int testInt = 123;
 
-    @Key(name = "test-double", description = {"Test double configuration", "Multi-line comment!"})
+    @Key("test-double")
+    @Comment({"Test double configuration", "Multi-line comment!"})
     private double testDouble = 123.456;
 
-    @Key(name = "test-long", description = "Test long configuration")
+    @Key("test-long")
+    @Comment("Test long configuration")
     private long testLong = 1234567890L;
 
-    @Key(name = "test-float", description = "Test float configuration")
+    @Key("test-float")
+    @Comment("Test float configuration")
     private float testFloat = 123.456f;
 
-    @Key(name = "test-list", description = "Test list configuration")
+    @Key("test-list")
+    @Comment("Test list configuration")
     private List<String> testList = List.of("item1", "item2", "item3");
 
-    @Key(name = "test-boolean", description = "Test boolean configuration")
+    @Key("test-boolean")
+    @Comment("Test boolean configuration")
     private boolean testBoolean = true;
 }
 ```
@@ -84,14 +91,6 @@ After that you can initialize the configuration and use it like this:
 public static void main(String[] args) {
     TestConfiguration config = new TestConfiguration();
     config.initialize(); // loads the configuration from file or creates a new one
-
-    System.out.println(config.getTestString());
-    System.out.println(config.getTestInt());
-    System.out.println(config.getTestDouble());
-    System.out.println(config.getTestLong());
-    System.out.println(config.getTestFloat());
-    System.out.println(config.getTestList());
-    System.out.println(config.isTestBoolean());
 }
 ```
 
