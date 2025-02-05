@@ -44,7 +44,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.google.gson</pattern>
-                                    <shadedPattern>de.metaphoriker.coma.shaded.gson</shadedPattern>
+                                    <shadedPattern>de.metaphoriker.jshepherd.shaded.gson</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

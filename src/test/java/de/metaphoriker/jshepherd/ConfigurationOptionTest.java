@@ -1,4 +1,4 @@
-package de.metaphoriker.coma;
+package de.metaphoriker.jshepherd;
 
 import static org.junit.jupiter.api.Assertions.*;
 

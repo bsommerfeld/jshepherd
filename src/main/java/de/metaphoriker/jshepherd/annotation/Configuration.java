@@ -1,6 +1,6 @@
-package de.metaphoriker.coma.annotation;
+package de.metaphoriker.jshepherd.annotation;
 
-import de.metaphoriker.coma.ConfigurationType;
+import de.metaphoriker.jshepherd.ConfigurationType;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

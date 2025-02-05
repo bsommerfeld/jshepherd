@@ -1,4 +1,4 @@
-package de.metaphoriker.coma;
+package de.metaphoriker.jshepherd;
 
 /**
  * ConfigurationOption is a class that represents a configuration option with a value and a comment.

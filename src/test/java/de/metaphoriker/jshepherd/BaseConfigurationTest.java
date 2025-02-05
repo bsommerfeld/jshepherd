@@ -1,10 +1,10 @@
-package de.metaphoriker.coma;
+package de.metaphoriker.jshepherd;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import de.metaphoriker.coma.annotation.Comment;
-import de.metaphoriker.coma.annotation.Key;
-import de.metaphoriker.coma.annotation.Configuration;
+import de.metaphoriker.jshepherd.annotation.Comment;
+import de.metaphoriker.jshepherd.annotation.Key;
+import de.metaphoriker.jshepherd.annotation.Configuration;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Arrays;

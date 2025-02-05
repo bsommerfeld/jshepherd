@@ -1,8 +1,8 @@
-package de.metaphoriker.coma;
+package de.metaphoriker.jshepherd;
 
-import de.metaphoriker.coma.annotation.Comment;
-import de.metaphoriker.coma.annotation.Configuration;
-import de.metaphoriker.coma.annotation.Key;
+import de.metaphoriker.jshepherd.annotation.Comment;
+import de.metaphoriker.jshepherd.annotation.Configuration;
+import de.metaphoriker.jshepherd.annotation.Key;
 import java.util.Arrays;
 import java.util.List;
 
