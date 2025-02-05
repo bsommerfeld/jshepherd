@@ -45,9 +45,6 @@ dependencies {
 Here is a simple test configuration. The values are automatically loaded from the configuration file if it exists,
 otherwise the default values are used for first generation.
 
-The instantiate object then acts like the shepherd of the configuration. If you change the value of a variable
-and save the configuration, the value inside the configuration will be changed.
-
 ```java
 @Configuration(fileName = "test-config", type = ConfigurationType.YAML)
 @Comment("A test configuration")
@@ -83,7 +80,10 @@ class TestConfiguration extends BaseConfiguration {
 }
 ```
 
-After that you can initialize the configuration and use it like this:
+After that you can initialize the configuration and use it like this.
+
+The instantiated object then acts like the shepherd of the configuration. If you change the value of a variable
+and save the configuration, the value inside the configuration will be changed.
 
 ```java
 public static void main(String[] args) {
