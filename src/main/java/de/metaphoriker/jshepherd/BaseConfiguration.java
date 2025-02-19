@@ -5,6 +5,7 @@ import com.google.gson.JsonSyntaxException;
 import de.metaphoriker.jshepherd.annotation.Comment;
 import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.annotation.Configuration;
+import de.metaphoriker.jshepherd.utils.ClassUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -163,7 +164,7 @@ public abstract class BaseConfiguration {
    * @throws IllegalAccessException if the field values cannot be accessed via reflection.
    */
   private void syncFieldsWithConfigOptions() throws IllegalAccessException {
-    List<Class<?>> classHierarchy = getClassHierarchy();
+    List<Class<?>> classHierarchy = ClassUtils.getHierarchy(getClass());
     for (Class<?> clazz : classHierarchy) {
       for (Field field : clazz.getDeclaredFields()) {
         Key keyAnnotation = field.getAnnotation(Key.class);
@@ -194,26 +195,10 @@ public abstract class BaseConfiguration {
    * class for fields annotated with @Key and updates their values.
    */
   private void loadConfigValues() {
-    List<Class<?>> classHierarchy = getClassHierarchy();
+    List<Class<?>> classHierarchy = ClassUtils.getHierarchy(getClass());
     for (Class<?> clazz : classHierarchy) {
       processClassFields(clazz);
     }
-  }
-
-  /**
-   * Retrieves the class hierarchy for the current class.
-   *
-   * @return A list of classes in the hierarchy.
-   */
-  private List<Class<?>> getClassHierarchy() {
-    List<Class<?>> classHierarchy = new ArrayList<>();
-    Class<?> clazz = this.getClass();
-    while (clazz != null && clazz != Object.class) {
-      classHierarchy.add(clazz);
-      clazz = clazz.getSuperclass();
-    }
-    Collections.reverse(classHierarchy); // super classes first
-    return classHierarchy;
   }
 
   /** Processes all fields in a class that are annotated with @Key. */
