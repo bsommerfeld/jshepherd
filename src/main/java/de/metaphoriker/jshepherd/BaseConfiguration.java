@@ -237,9 +237,9 @@ public abstract class BaseConfiguration {
     field.setAccessible(true);
     try {
       if (properties.containsKey(key)) {
-        processExistingProperty(field, key, keyAnnotation);
+        processExistingProperty(field, key);
       } else {
-        processDefaultValue(field, key, keyAnnotation);
+        processDefaultValue(field, key);
       }
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Unable to access field: " + field.getName(), e);
@@ -250,7 +250,7 @@ public abstract class BaseConfiguration {
    * Processes a field that has a corresponding key in the properties file. Assigns the property
    * value to the field and creates a ConfigurationOption.
    */
-  private void processExistingProperty(Field field, String key, Key keyAnnotation)
+  private void processExistingProperty(Field field, String key)
           throws IllegalAccessException {
     String newValue = properties.getProperty(key);
     assignNewValue(field, newValue);
@@ -263,7 +263,7 @@ public abstract class BaseConfiguration {
    * Processes a field that does not have a corresponding key in the properties file. Uses the
    * current field value or a default value to create a ConfigurationOption.
    */
-  private void processDefaultValue(Field field, String key, Key keyAnnotation)
+  private void processDefaultValue(Field field, String key)
           throws IllegalAccessException {
     Object fieldValue = field.get(this);
     String[] comments = getCommentsForField(field);
