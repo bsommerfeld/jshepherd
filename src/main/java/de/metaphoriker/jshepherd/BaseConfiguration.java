@@ -30,6 +30,8 @@ public abstract class BaseConfiguration {
   private final Map<String, ConfigurationOption<?>> configOptions = new LinkedHashMap<>();
   private final Properties properties = new Properties();
 
+  private PrintWriter fileWriter;
+
   private File file;
 
   /** Constructor for BaseConfiguration, uses the file name from the @Configuration annotation. */
@@ -127,15 +129,17 @@ public abstract class BaseConfiguration {
   /** Saves the current configuration options to the file with comments. */
   public void save() {
     try (PrintWriter writer = new PrintWriter(Files.newOutputStream(file.toPath()))) {
-      writeHeader(writer);
+      fileWriter = writer;
+      writeHeader();
       syncWithOptions();
       for (Map.Entry<String, ConfigurationOption<?>> entry : configOptions.entrySet()) {
         String key = entry.getKey();
         ConfigurationOption<?> option = entry.getValue();
-        writeComment(writer, option);
-        writeValue(writer, key, option);
+        writeComment(option);
+        writeValue(key, option);
         writer.println();
       }
+
     } catch (IOException | IllegalAccessException e) {
       throw new IllegalStateException("Could not save configuration file: " + file.getName(), e);
     }
@@ -262,31 +266,28 @@ public abstract class BaseConfiguration {
   /**
    * Writes the header for the configuration file from the @Comment annotation if present. Otherwise,
    * writes a default header.
-   *
-   * @param writer The PrintWriter to write the header to the file.
    */
-  private void writeHeader(PrintWriter writer) {
+  private void writeHeader() {
     Comment headerAnnotation = this.getClass().getAnnotation(Comment.class);
     if (headerAnnotation != null) {
       String[] headerLines = headerAnnotation.value();
       for (String line : headerLines) {
-        writeComment(writer, line);
+        writeComment(line);
       }
     }
-    writer.println();
+    fileWriter.println();
   }
 
   /**
    * Writes the comment for a given configuration option.
    *
-   * @param writer The PrintWriter to write the comment to the file.
    * @param key The configuration option.
    */
-  private void writeValue(PrintWriter writer, String key, ConfigurationOption<?> option) {
+  private void writeValue(String key, ConfigurationOption<?> option) {
     Object value = option.getValue();
     String serializedValue = GSON.toJson(value);
     String delimiter = getDelimiter();
-    writer.printf("%s" + delimiter + " %s%n", key, serializedValue);
+    fileWriter.printf("%s" + delimiter + " %s%n", key, serializedValue);
   }
 
   /**
@@ -310,23 +311,19 @@ public abstract class BaseConfiguration {
   /**
    * Writes the comment for a given configuration option.
    *
-   * @param writer The PrintWriter to write the comment to the file.
    * @param option The configuration option.
    */
-  private void writeComment(PrintWriter writer, ConfigurationOption<?> option) {
-    if (option.getComments().length != 0) {
-      Arrays.stream(option.getComments()).forEach(comment -> writeComment(writer, comment));
-    }
+  private void writeComment(ConfigurationOption<?> option) {
+      Arrays.stream(option.getComments()).forEach(this::writeComment);
   }
 
   /**
    * Writes a comment to the configuration file.
    *
-   * @param writer The PrintWriter to write the comment to the file.
    * @param comment The comment to write.
    */
-  private void writeComment(PrintWriter writer, String comment) {
-    writer.println(COMMENT_PREFIX + " " + comment);
+  private void writeComment(String comment) {
+    fileWriter.println(COMMENT_PREFIX + " " + comment);
   }
 
   /**
