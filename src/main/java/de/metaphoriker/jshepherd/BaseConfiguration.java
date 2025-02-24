@@ -148,13 +148,16 @@ public abstract class BaseConfiguration {
     for (Class<?> clazz : classHierarchy) {
       for (Field field : clazz.getDeclaredFields()) {
         Key keyAnnotation = field.getAnnotation(Key.class);
-        if (keyAnnotation != null) {
-          field.setAccessible(true);
-          Object fieldValue = field.get(this);
-          String[] comments = getComments(field);
-          ConfigurationOption<?> option = new ConfigurationOption<>(fieldValue, comments);
-          configOptions.put(keyAnnotation.value(), option);
+
+        if (keyAnnotation == null) {
+          continue;
         }
+
+        field.setAccessible(true);
+        Object fieldValue = field.get(this);
+        String[] comments = getComments(field);
+        ConfigurationOption<?> option = new ConfigurationOption<>(fieldValue, comments);
+        configOptions.put(keyAnnotation.value(), option);
       }
     }
   }
@@ -236,14 +239,15 @@ public abstract class BaseConfiguration {
 
   /** Loads the configuration from the file if it exists. */
   private void loadFileIfExists() {
-    if (file.exists()) {
-      try (FileInputStream fis = new FileInputStream(file)) {
-        properties.load(fis);
-      } catch (IOException e) {
-        throw new IllegalStateException("Could not load configuration file: " + file.getName(), e);
-      }
-    } else {
+    if (!file.exists()) {
       save();
+      return;
+    }
+
+    try (FileInputStream fis = new FileInputStream(file)) {
+      properties.load(fis);
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not load configuration file: " + file.getName(), e);
     }
   }
 
@@ -253,12 +257,15 @@ public abstract class BaseConfiguration {
    */
   private void writeHeader() {
     Comment headerAnnotation = this.getClass().getAnnotation(Comment.class);
-    if (headerAnnotation != null) {
-      String[] headerLines = headerAnnotation.value();
-      for (String line : headerLines) {
-        writeComment(line);
-      }
+
+    if (headerAnnotation == null) {
+      return;
     }
+
+    for (String line : headerAnnotation.value()) {
+      writeComment(line);
+    }
+
     fileWriter.println();
   }
 
