@@ -19,19 +19,12 @@ import java.util.*;
 /** BaseConfiguration is a class that manages configuration options and saves them to a file. */
 public abstract class BaseConfiguration {
 
-  private static final String COMMENT_PREFIX = "#";
-  private static final String YAML_EXTENSION = ".yml";
-  private static final String YAML_DELIMITER = ":";
-  private static final String PROPERTIES_EXTENSION = ".properties";
-  private static final String PROPERTIES_DELIMITER = "=";
-
   private static final Gson GSON = new Gson();
 
   private final Map<String, ConfigurationOption<?>> configOptions = new LinkedHashMap<>();
   private final Properties properties = new Properties();
 
   private PrintWriter fileWriter;
-
   private File file;
 
   /** Constructor for BaseConfiguration, uses the file name from the @Configuration annotation. */
@@ -77,10 +70,10 @@ public abstract class BaseConfiguration {
     String filePath = getFilePath(configuration, directory);
     switch (configuration.type()) {
       case YAML:
-        this.file = new File(filePath + YAML_EXTENSION);
+        this.file = new File(filePath + ".yml");
         break;
       case PROPERTIES:
-        this.file = new File(filePath + PROPERTIES_EXTENSION);
+        this.file = new File(filePath + ".properties");
         break;
       default:
         throw new IllegalArgumentException("Configuration type not supported");
@@ -300,9 +293,9 @@ public abstract class BaseConfiguration {
     Configuration configuration = retrieveConfigurationAnnotation();
     switch (configuration.type()) {
       case YAML:
-        return YAML_DELIMITER;
+        return ":";
       case PROPERTIES:
-        return PROPERTIES_DELIMITER;
+        return "=";
       default:
         throw new IllegalArgumentException("Configuration type not supported");
     }
@@ -323,7 +316,7 @@ public abstract class BaseConfiguration {
    * @param comment The comment to write.
    */
   private void writeComment(String comment) {
-    fileWriter.println(COMMENT_PREFIX + " " + comment);
+    fileWriter.println("# " + comment);
   }
 
   /**
