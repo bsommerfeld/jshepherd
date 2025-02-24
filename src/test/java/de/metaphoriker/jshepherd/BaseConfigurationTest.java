@@ -42,8 +42,8 @@ class BaseConfigurationTest {
     assertEquals(1, parentField.get(childConfig));
 
     parentField.set(childConfig, 100);
-    childConfig.saveConfiguration();
-    childConfig.reloadConfig();
+    childConfig.save();
+    childConfig.reload();
 
     assertEquals(100, parentField.get(childConfig));
   }
@@ -81,9 +81,9 @@ class BaseConfigurationTest {
     assertEquals("defaultValue", stringField.get(config));
 
     stringField.set(config, "newValue");
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals("newValue", stringField.get(config));
   }
 
@@ -95,9 +95,9 @@ class BaseConfigurationTest {
     assertEquals(123, intField.get(config));
 
     intField.set(config, 100);
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals(100, intField.get(config));
   }
 
@@ -109,9 +109,9 @@ class BaseConfigurationTest {
     assertTrue((boolean) booleanField.get(config));
 
     booleanField.set(config, false);
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertFalse((boolean) booleanField.get(config));
   }
 
@@ -123,9 +123,9 @@ class BaseConfigurationTest {
     assertEquals(Arrays.asList("item1", "item2", "item3"), listField.get(config));
 
     listField.set(config, Arrays.asList("newItem1", "newItem2"));
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals(Arrays.asList("newItem1", "newItem2"), listField.get(config));
   }
 
@@ -137,9 +137,9 @@ class BaseConfigurationTest {
     assertEquals(123.456, (double) doubleField.get(config));
 
     doubleField.set(config, 100.0);
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals(100.0, (double) doubleField.get(config));
   }
 
@@ -151,9 +151,9 @@ class BaseConfigurationTest {
     assertEquals(1234567890L, (long) longField.get(config));
 
     longField.set(config, 100L);
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals(100L, (long) longField.get(config));
   }
 
@@ -165,9 +165,9 @@ class BaseConfigurationTest {
     assertEquals(123.456f, (float) floatField.get(config));
 
     floatField.set(config, 100.0f);
-    config.saveConfiguration();
+    config.save();
 
-    config.reloadConfig();
+    config.reload();
     assertEquals(100.0f, (float) floatField.get(config));
   }
 
@@ -178,7 +178,7 @@ class BaseConfigurationTest {
 
     assertTrue(configFile.delete(), "Config file should be deleted.");
 
-    config.reloadConfig();
+    config.reload();
 
     assertTrue(configFile.exists(), "Config file should be recreated after reloadConfig().");
   }

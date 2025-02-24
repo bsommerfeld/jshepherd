@@ -35,7 +35,7 @@ public abstract class BaseConfiguration {
   /** Constructor for BaseConfiguration, uses the file name from the @Configuration annotation. */
   protected BaseConfiguration() {
     Configuration configAnnotation = retrieveConfigurationAnnotation();
-    createFileWithRespectiveExtension(configAnnotation);
+    createFile(configAnnotation);
     createDirectoryIfNotExists(file.getParentFile());
   }
 
@@ -44,8 +44,8 @@ public abstract class BaseConfiguration {
    * does not exist.
    */
   public void initialize() {
-    reloadConfig();
-    saveConfiguration();
+    reload();
+    save();
   }
 
   /**
@@ -59,7 +59,7 @@ public abstract class BaseConfiguration {
     }
 
     Configuration configAnnotation = retrieveConfigurationAnnotation();
-    createFileWithRespectiveExtension(configAnnotation, directory.getPath());
+    createFile(configAnnotation, directory.getPath());
     createDirectoryIfNotExists(directory);
   }
 
@@ -71,7 +71,7 @@ public abstract class BaseConfiguration {
    * @param directory Optional parameter that specifies the directory where the file should be
    *     created. If null, the file will be created in the current directory.
    */
-  private void createFileWithRespectiveExtension(Configuration configuration, String... directory) {
+  private void createFile(Configuration configuration, String... directory) {
     String filePath = getFilePath(configuration, directory);
     switch (configuration.type()) {
       case YAML:
@@ -124,7 +124,7 @@ public abstract class BaseConfiguration {
    * @param key The key to identify the configuration option.
    * @param option The configuration option to store.
    */
-  private void setConfigOption(String key, ConfigurationOption<?> option) {
+  private void setOption(String key, ConfigurationOption<?> option) {
     if (key == null || option == null) {
       throw new IllegalArgumentException("Key and option must not be null");
     }
@@ -132,16 +132,16 @@ public abstract class BaseConfiguration {
   }
 
   /** Reloads the configuration from the file and updates internal options. */
-  public void reloadConfig() {
+  public void reload() {
     loadFileIfExists();
-    loadConfigValues();
+    loadValues();
   }
 
   /** Saves the current configuration options to the file with comments. */
-  public void saveConfiguration() {
+  public void save() {
     try (PrintWriter writer = new PrintWriter(Files.newOutputStream(file.toPath()))) {
-      writeConfigHeader(writer);
-      syncFieldsWithConfigOptions();
+      writeHeader(writer);
+      syncWithOptions();
       for (Map.Entry<String, ConfigurationOption<?>> entry : configOptions.entrySet()) {
         String key = entry.getKey();
         ConfigurationOption<?> option = entry.getValue();
@@ -163,7 +163,7 @@ public abstract class BaseConfiguration {
    *
    * @throws IllegalAccessException if the field values cannot be accessed via reflection.
    */
-  private void syncFieldsWithConfigOptions() throws IllegalAccessException {
+  private void syncWithOptions() throws IllegalAccessException {
     List<Class<?>> classHierarchy = ClassUtils.getHierarchy(getClass());
     for (Class<?> clazz : classHierarchy) {
       for (Field field : clazz.getDeclaredFields()) {
@@ -171,7 +171,7 @@ public abstract class BaseConfiguration {
         if (keyAnnotation != null) {
           field.setAccessible(true);
           Object fieldValue = field.get(this);
-          String[] comments = getCommentsForField(field);
+          String[] comments = getComments(field);
           ConfigurationOption<?> option = new ConfigurationOption<>(fieldValue, comments);
           configOptions.put(keyAnnotation.value(), option);
         }
@@ -185,7 +185,7 @@ public abstract class BaseConfiguration {
    * @param field The field to retrieve comments from.
    * @return An array of comments or an empty array if no comments are found.
    */
-  private String[] getCommentsForField(Field field) {
+  private String[] getComments(Field field) {
     Comment commentAnnotation = field.getAnnotation(Comment.class);
     return commentAnnotation != null ? commentAnnotation.value() : new String[0];
   }
@@ -194,15 +194,15 @@ public abstract class BaseConfiguration {
    * Loads configuration values from the properties file and updates internal options. Scans the
    * class for fields annotated with @Key and updates their values.
    */
-  private void loadConfigValues() {
+  private void loadValues() {
     List<Class<?>> classHierarchy = ClassUtils.getHierarchy(getClass());
     for (Class<?> clazz : classHierarchy) {
-      processClassFields(clazz);
+      processFields(clazz);
     }
   }
 
   /** Processes all fields in a class that are annotated with @Key. */
-  private void processClassFields(Class<?> clazz) {
+  private void processFields(Class<?> clazz) {
     for (Field field : clazz.getDeclaredFields()) {
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation != null) {
@@ -239,9 +239,9 @@ public abstract class BaseConfiguration {
           throws IllegalAccessException {
     String newValue = properties.getProperty(key);
     assignNewValue(field, newValue);
-    String[] comments = getCommentsForField(field);
+    String[] comments = getComments(field);
     ConfigurationOption<?> option = new ConfigurationOption<>(field.get(this), comments);
-    setConfigOption(key, option);
+    setOption(key, option);
   }
 
   /**
@@ -251,14 +251,14 @@ public abstract class BaseConfiguration {
   private void processDefaultValue(Field field, String key)
           throws IllegalAccessException {
     Object fieldValue = field.get(this);
-    String[] comments = getCommentsForField(field);
+    String[] comments = getComments(field);
     ConfigurationOption<?> option;
     if (fieldValue != null) {
       option = new ConfigurationOption<>(fieldValue, comments);
     } else {
       option = new ConfigurationOption<>("", comments);
     }
-    setConfigOption(key, option);
+    setOption(key, option);
   }
 
   /** Loads the configuration from the file if it exists. */
@@ -270,7 +270,7 @@ public abstract class BaseConfiguration {
         throw new IllegalStateException("Could not load configuration file: " + file.getName(), e);
       }
     } else {
-      saveConfiguration();
+      save();
     }
   }
 
@@ -280,7 +280,7 @@ public abstract class BaseConfiguration {
    *
    * @param writer The PrintWriter to write the header to the file.
    */
-  private void writeConfigHeader(PrintWriter writer) {
+  private void writeHeader(PrintWriter writer) {
     Comment headerAnnotation = this.getClass().getAnnotation(Comment.class);
     if (headerAnnotation != null) {
       String[] headerLines = headerAnnotation.value();
