@@ -7,13 +7,14 @@ import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.annotation.Configuration;
 import de.metaphoriker.jshepherd.utils.ClassUtils;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 /** BaseConfiguration is a class that manages configuration options and saves them to a file. */
@@ -25,13 +26,11 @@ public abstract class BaseConfiguration {
   private final Properties properties = new Properties();
 
   private PrintWriter fileWriter;
-  private File file;
+  public Path file;
 
   /** Constructor for BaseConfiguration, uses the file name from the @Configuration annotation. */
   protected BaseConfiguration() {
-    Configuration configAnnotation = retrieveConfigurationAnnotation();
-    createFile(configAnnotation);
-    createDirectoryIfNotExists(file.getParentFile());
+    file = createFile();
   }
 
   /**
@@ -48,52 +47,26 @@ public abstract class BaseConfiguration {
    *
    * @param directory The directory path as a String or File
    */
-  public void setDirectory(File directory) {
+  public void setDirectory(Path directory) {
     if (directory == null) {
       throw new IllegalArgumentException("The directory must not be null");
     }
 
-    Configuration configAnnotation = retrieveConfigurationAnnotation();
-    createFile(configAnnotation, directory.getPath());
-    createDirectoryIfNotExists(directory);
-  }
-
-  /**
-   * Creates a file with the appropriate extension based on the configuration type.
-   *
-   * @param configuration the configuration object that provides the file name and type of the
-   *     configuration
-   * @param directory Optional parameter that specifies the directory where the file should be
-   *     created. If null, the file will be created in the current directory.
-   */
-  private void createFile(Configuration configuration, String... directory) {
-    String filePath = getFilePath(configuration, directory);
-    switch (configuration.type()) {
-      case YAML:
-        this.file = new File(filePath + ".yml");
-        break;
-      case PROPERTIES:
-        this.file = new File(filePath + ".properties");
-        break;
-      default:
-        throw new IllegalArgumentException("Configuration type not supported");
+    if (!Files.isDirectory(directory)) {
+      throw new IllegalArgumentException("The provided path must be a directory");
     }
+
+    file = directory.resolve(file);
   }
 
-  /**
-   * Retrieves the file path based on a given configuration and optional directory.
-   *
-   * @param configuration The configuration object that provides the file name.
-   * @param directory An array of strings representing the directories. The first element is used if
-   *     present.
-   * @return The full file path as a string. If the directory array is not empty, the path is
-   *     constructed using the first directory and the file name from the configuration. Otherwise ,
-   *     the file name from the configuration is returned.
-   */
-  private String getFilePath(Configuration configuration, String[] directory) {
-    return directory.length > 0
-            ? new File(directory[0], configuration.fileName()).getPath()
-            : configuration.fileName();
+  /** Creates a {@link Path} object based on the data of the {@link Configuration} annotation. */
+  private Path createFile() {
+    Configuration configuration = retrieveConfigurationAnnotation();
+
+    String fileName = configuration.fileName();
+    String extension = configuration.type().getExtension();
+
+    return Paths.get(fileName + "." + extension);
   }
 
   /** Retrieves the @Configuration annotation from the class. */
@@ -117,7 +90,8 @@ public abstract class BaseConfiguration {
 
   /** Saves the current configuration options to the file with comments. */
   public void save() {
-    try (PrintWriter writer = new PrintWriter(Files.newOutputStream(file.toPath()))) {
+    try (PrintWriter writer = new PrintWriter(Files.newOutputStream(file))) {
+
       fileWriter = writer;
       writeHeader();
       syncWithOptions();
@@ -130,7 +104,7 @@ public abstract class BaseConfiguration {
       }
 
     } catch (IOException | IllegalAccessException e) {
-      throw new IllegalStateException("Could not save configuration file: " + file.getName(), e);
+      throw new IllegalStateException("Could not save configuration file: " + file.getFileName(), e);
     }
   }
 
@@ -239,15 +213,15 @@ public abstract class BaseConfiguration {
 
   /** Loads the configuration from the file if it exists. */
   private void loadFileIfExists() {
-    if (!file.exists()) {
+    if (Files.notExists(file)) {
       save();
       return;
     }
 
-    try (FileInputStream fis = new FileInputStream(file)) {
-      properties.load(fis);
+    try (InputStream is = Files.newInputStream(file)) {
+      properties.load(is);
     } catch (IOException e) {
-      throw new IllegalStateException("Could not load configuration file: " + file.getName(), e);
+      throw new IllegalStateException("Could not load configuration file: " + file, e);
     }
   }
 
@@ -280,14 +254,7 @@ public abstract class BaseConfiguration {
   /**Determines the appropriate delimiter based on the type of configuration. */
   private String getDelimiter() {
     Configuration configuration = retrieveConfigurationAnnotation();
-    switch (configuration.type()) {
-      case YAML:
-        return ":";
-      case PROPERTIES:
-        return "=";
-      default:
-        throw new IllegalArgumentException("Configuration type not supported");
-    }
+    return configuration.type().getDelimiter();
   }
 
   /** Writes the comment for a given configuration option. */
@@ -307,15 +274,7 @@ public abstract class BaseConfiguration {
       Object value = GSON.fromJson(newValue, type);
       field.set(this, value);
     } catch (JsonSyntaxException e) {
-      throw new IllegalArgumentException(
-              "Unable to parse the configuration value for field: " + field.getName(), e);
-    }
-  }
-
-  /** Ensures the parent directory exists; creates it if necessary. */
-  private void createDirectoryIfNotExists(File directory) {
-    if (directory != null && !directory.exists()) {
-      directory.mkdirs();
+      throw new IllegalArgumentException("Unable to parse the configuration value for field: " + field.getName(), e);
     }
   }
 }
