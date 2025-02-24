@@ -118,19 +118,6 @@ public abstract class BaseConfiguration {
     return configAnnotation;
   }
 
-  /**
-   * Adds a configuration option to the internal map.
-   *
-   * @param key The key to identify the configuration option.
-   * @param option The configuration option to store.
-   */
-  private void setOption(String key, ConfigurationOption<?> option) {
-    if (key == null || option == null) {
-      throw new IllegalArgumentException("Key and option must not be null");
-    }
-    configOptions.put(key, option);
-  }
-
   /** Reloads the configuration from the file and updates internal options. */
   public void reload() {
     loadFileIfExists();
@@ -240,7 +227,7 @@ public abstract class BaseConfiguration {
     assignNewValue(field, newValue);
     String[] comments = getComments(field);
     ConfigurationOption<?> option = new ConfigurationOption<>(field.get(this), comments);
-    setOption(key, option);
+    configOptions.put(key, option);
   }
 
   /**
@@ -256,7 +243,7 @@ public abstract class BaseConfiguration {
     } else {
       option = new ConfigurationOption<>("", comments);
     }
-    setOption(key, option);
+    configOptions.put(key, option);
   }
 
   /** Loads the configuration from the file if it exists. */
