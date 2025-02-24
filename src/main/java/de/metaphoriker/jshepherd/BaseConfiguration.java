@@ -96,11 +96,7 @@ public abstract class BaseConfiguration {
             : configuration.fileName();
   }
 
-  /**
-   * Retrieves the @Configuration annotation from the class.
-   *
-   * @return The Configuration annotation.
-   */
+  /** Retrieves the @Configuration annotation from the class. */
   private Configuration retrieveConfigurationAnnotation() {
     Class<? extends BaseConfiguration> clazz = this.getClass();
     Configuration configAnnotation = clazz.getAnnotation(Configuration.class);
@@ -195,12 +191,7 @@ public abstract class BaseConfiguration {
     }
   }
 
-  /**
-   * Process an individual field that is annotated with @Key.
-   *
-   * @param field The field to process.
-   * @param keyAnnotation The annotation instance for this field.
-   */
+  /** Process an individual field that is annotated with @Key. */
   private void processField(Field field, Key keyAnnotation) {
     String key = keyAnnotation.value();
     field.setAccessible(true);
@@ -271,11 +262,7 @@ public abstract class BaseConfiguration {
     fileWriter.println();
   }
 
-  /**
-   * Writes the comment for a given configuration option.
-   *
-   * @param key The configuration option.
-   */
+  /** Writes the comment for a given configuration option. */
   private void writeValue(String key, ConfigurationOption<?> option) {
     Object value = option.getValue();
     String serializedValue = GSON.toJson(value);
@@ -283,12 +270,7 @@ public abstract class BaseConfiguration {
     fileWriter.printf("%s" + delimiter + " %s%n", key, serializedValue);
   }
 
-  /**
-   * Determines the appropriate delimiter based on the type of configuration.
-   *
-   * @return The delimiter string corresponding to the configuration type.
-   * @throws IllegalArgumentException if the configuration type is not supported.
-   */
+  /**Determines the appropriate delimiter based on the type of configuration. */
   private String getDelimiter() {
     Configuration configuration = retrieveConfigurationAnnotation();
     switch (configuration.type()) {
@@ -301,30 +283,17 @@ public abstract class BaseConfiguration {
     }
   }
 
-  /**
-   * Writes the comment for a given configuration option.
-   *
-   * @param option The configuration option.
-   */
+  /** Writes the comment for a given configuration option. */
   private void writeComment(ConfigurationOption<?> option) {
       Arrays.stream(option.getComments()).forEach(this::writeComment);
   }
 
-  /**
-   * Writes a comment to the configuration file.
-   *
-   * @param comment The comment to write.
-   */
+  /** Writes a comment to the configuration file. */
   private void writeComment(String comment) {
     fileWriter.println("# " + comment);
   }
 
-  /**
-   * Assigns a new value to a configuration option based on the properties file.
-   *
-   * @param field The field representing the configuration option.
-   * @param newValue The value from the properties file.
-   */
+  /** Assigns a new value to a configuration option based on the properties file. */
   private <T> void assignNewValue(Field field, String newValue) throws IllegalAccessException {
     Class<?> type = field.getType();
     try {
@@ -336,11 +305,7 @@ public abstract class BaseConfiguration {
     }
   }
 
-  /**
-   * Ensures the parent directory exists; creates it if necessary.
-   *
-   * @param directory The directory to check or create.
-   */
+  /** Ensures the parent directory exists; creates it if necessary. */
   private void createDirectoryIfNotExists(File directory) {
     if (directory != null && !directory.exists()) {
       directory.mkdirs();
