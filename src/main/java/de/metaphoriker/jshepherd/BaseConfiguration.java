@@ -3,6 +3,7 @@ package de.metaphoriker.jshepherd;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import de.metaphoriker.jshepherd.annotation.Comment;
+import de.metaphoriker.jshepherd.annotation.CommentSection;
 import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.annotation.Configuration;
 import de.metaphoriker.jshepherd.utils.ClassUtils;
@@ -143,8 +144,22 @@ public abstract class BaseConfiguration {
    * @return An array of comments or an empty array if no comments are found.
    */
   private String[] getComments(Field field) {
-    Comment commentAnnotation = field.getAnnotation(Comment.class);
-    return commentAnnotation != null ? commentAnnotation.value() : new String[0];
+    Comment comment = field.getAnnotation(Comment.class);
+    CommentSection commentSection = field.getAnnotation(CommentSection.class);
+
+    List<String> result = new ArrayList<>();
+
+    if(commentSection != null) {
+      Collections.addAll(result, commentSection.value());
+    }
+
+    result.add(" ");
+
+    if(comment != null) {
+      Collections.addAll(result, comment.value());
+    }
+
+    return result.toArray(new String[0]);
   }
 
   /**
@@ -264,7 +279,11 @@ public abstract class BaseConfiguration {
 
   /** Writes a comment to the configuration file. */
   private void writeComment(String comment) {
-    fileWriter.println("# " + comment);
+    //separate the section's comment from the opener field's comment
+    if(!comment.equals(" "))
+      comment = "# " + comment;
+
+    fileWriter.println(comment);
   }
 
   /** Assigns a new value to a configuration option based on the properties file. */
