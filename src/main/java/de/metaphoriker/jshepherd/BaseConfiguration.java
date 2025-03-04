@@ -288,9 +288,8 @@ public abstract class BaseConfiguration {
 
   /** Assigns a new value to a configuration option based on the properties file. */
   private <T> void assignNewValue(Field field, String newValue) throws IllegalAccessException {
-    Class<?> type = field.getType();
     try {
-      Object value = GSON.fromJson(newValue, type);
+      Object value = GSON.fromJson(newValue, field.getGenericType());
       field.set(this, value);
     } catch (JsonSyntaxException e) {
       throw new IllegalArgumentException("Unable to parse the configuration value for field: " + field.getName(), e);
