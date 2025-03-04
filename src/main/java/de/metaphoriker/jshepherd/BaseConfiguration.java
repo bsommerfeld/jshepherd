@@ -1,6 +1,7 @@
 package de.metaphoriker.jshepherd;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import de.metaphoriker.jshepherd.annotation.Comment;
 import de.metaphoriker.jshepherd.annotation.CommentSection;
@@ -21,7 +22,9 @@ import java.util.*;
 /** BaseConfiguration is a class that manages configuration options and saves them to a file. */
 public abstract class BaseConfiguration {
 
-  private static final Gson GSON = new Gson();
+  private static final Gson GSON = new GsonBuilder()
+          .disableHtmlEscaping()
+          .create();
 
   private final Map<String, ConfigurationOption<?>> configOptions = new LinkedHashMap<>();
   private final Properties properties = new Properties();
