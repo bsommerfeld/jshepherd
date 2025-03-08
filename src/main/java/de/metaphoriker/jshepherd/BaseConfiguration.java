@@ -5,10 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import de.metaphoriker.jshepherd.annotation.Comment;
 import de.metaphoriker.jshepherd.annotation.CommentSection;
-import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.annotation.Configuration;
+import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.utils.ClassUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -22,9 +21,7 @@ import java.util.*;
 /** BaseConfiguration is a class that manages configuration options and saves them to a file. */
 public abstract class BaseConfiguration {
 
-  private static final Gson GSON = new GsonBuilder()
-          .disableHtmlEscaping()
-          .create();
+  private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
   private final Map<String, ConfigurationOption<?>> configOptions = new LinkedHashMap<>();
   private final Properties properties = new Properties();
@@ -108,7 +105,8 @@ public abstract class BaseConfiguration {
       }
 
     } catch (IOException | IllegalAccessException e) {
-      throw new IllegalStateException("Could not save configuration file: " + file.getFileName(), e);
+      throw new IllegalStateException(
+          "Could not save configuration file: " + file.getFileName(), e);
     }
   }
 
@@ -116,8 +114,8 @@ public abstract class BaseConfiguration {
    * Synchronizes the current field values with the configuration options.
    *
    * <p>This method iterates over the fields of the current class and its superclasses. For each
-   * field annotated with {@link Key}, the current field value is retrieved using reflection
-   * and the corresponding entry in the {@code configOptions} map is updated with this value.
+   * field annotated with {@link Key}, the current field value is retrieved using reflection and the
+   * corresponding entry in the {@code configOptions} map is updated with this value.
    *
    * @throws IllegalAccessException if the field values cannot be accessed via reflection.
    */
@@ -152,13 +150,13 @@ public abstract class BaseConfiguration {
 
     List<String> result = new ArrayList<>();
 
-    if(commentSection != null) {
+    if (commentSection != null) {
       Collections.addAll(result, commentSection.value());
     }
 
     result.add(" ");
 
-    if(comment != null) {
+    if (comment != null) {
       Collections.addAll(result, comment.value());
     }
 
@@ -244,8 +242,8 @@ public abstract class BaseConfiguration {
   }
 
   /**
-   * Writes the header for the configuration file from the @Comment annotation if present. Otherwise,
-   * writes a default header.
+   * Writes the header for the configuration file from the @Comment annotation if present.
+   * Otherwise, writes a default header.
    */
   private void writeHeader() {
     Comment headerAnnotation = this.getClass().getAnnotation(Comment.class);
@@ -264,12 +262,17 @@ public abstract class BaseConfiguration {
   /** Writes the comment for a given configuration option. */
   private void writeValue(String key, ConfigurationOption<?> option) {
     Object value = option.getValue();
-    String serializedValue = GSON.toJson(value);
+    String serializedValue;
+    if (value instanceof String) {
+      serializedValue = (String) value; // We do not need to use GSON for Strings
+    } else {
+      serializedValue = GSON.toJson(value);
+    }
     String delimiter = getDelimiter();
     fileWriter.printf("%s" + delimiter + " %s%n", key, serializedValue);
   }
 
-  /**Determines the appropriate delimiter based on the type of configuration. */
+  /** Determines the appropriate delimiter based on the type of configuration. */
   private String getDelimiter() {
     Configuration configuration = retrieveConfigurationAnnotation();
     return configuration.type().getDelimiter();
@@ -277,26 +280,54 @@ public abstract class BaseConfiguration {
 
   /** Writes the comment for a given configuration option. */
   private void writeComment(ConfigurationOption<?> option) {
-      Arrays.stream(option.getComments()).forEach(this::writeComment);
+    Arrays.stream(option.getComments()).forEach(this::writeComment);
   }
 
   /** Writes a comment to the configuration file. */
   private void writeComment(String comment) {
-    //separate the section's comment from the opener field's comment
-    if(!comment.equals(" "))
-      comment = "# " + comment;
+    // separate the section's comment from the opener field's comment
+    if (!comment.equals(" ")) comment = "# " + comment;
 
     fileWriter.println(comment);
   }
 
-  /** Assigns a new value to a configuration option based on the properties file. */
-  private <T> void assignNewValue(Field field, String newValue) throws IllegalAccessException {
-    Class<?> type = field.getType();
+  /** Assigns a new value to a field, attempting to convert it to the correct type. */
+  private void assignNewValue(Field field, String newValue) throws IllegalAccessException {
+    Class<?> fieldType = field.getType();
+
     try {
-      Object value = GSON.fromJson(newValue, type);
-      field.set(this, value);
-    } catch (JsonSyntaxException e) {
-      throw new IllegalArgumentException("Unable to parse the configuration value for field: " + field.getName(), e);
+      Object convertedValue;
+
+      if (fieldType.equals(String.class)) {
+        convertedValue = newValue; // No conversion needed for Strings
+      } else if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) {
+        convertedValue = Integer.parseInt(newValue);
+      } else if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) {
+        convertedValue = Boolean.parseBoolean(newValue);
+      } else if (fieldType.equals(Double.class) || fieldType.equals(double.class)) {
+        convertedValue = Double.parseDouble(newValue);
+      } else if (fieldType.equals(Float.class) || fieldType.equals(float.class)) {
+        convertedValue = Float.parseFloat(newValue);
+      } else if (fieldType.equals(Long.class) || fieldType.equals(long.class)) {
+        convertedValue = Long.parseLong(newValue);
+      } else if (fieldType.equals(Short.class) || fieldType.equals(short.class)) {
+        convertedValue = Short.parseShort(newValue);
+      } else {
+        // Attempt to deserialize with Gson for other types.
+        convertedValue = GSON.fromJson(newValue, fieldType);
+      }
+
+      field.set(this, convertedValue);
+
+    } catch (NumberFormatException | JsonSyntaxException e) {
+      throw new IllegalArgumentException(
+          "Unable to parse the configuration value '"
+              + newValue
+              + "' for field: "
+              + field.getName()
+              + " of type "
+              + fieldType.getName(),
+          e);
     }
   }
 }

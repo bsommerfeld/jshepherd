@@ -3,12 +3,11 @@ package de.metaphoriker.jshepherd;
 import static org.junit.jupiter.api.Assertions.*;
 
 import de.metaphoriker.jshepherd.annotation.Comment;
-import de.metaphoriker.jshepherd.annotation.Key;
 import de.metaphoriker.jshepherd.annotation.Configuration;
+import de.metaphoriker.jshepherd.annotation.Key;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -24,11 +23,11 @@ class BaseConfigurationTest {
   @Test
   void testAbstractClassCannotHaveConfigurationAnnotation() {
     assertThrows(
-            IllegalStateException.class,
-            () -> {
-              new AbstractConfigClass() {}.initialize();
-            },
-            "Abstract class should not be able to have the @Configuration annotation.");
+        IllegalStateException.class,
+        () -> {
+          new AbstractConfigClass() {}.initialize();
+        },
+        "Abstract class should not be able to have the @Configuration annotation.");
   }
 
   @Test
