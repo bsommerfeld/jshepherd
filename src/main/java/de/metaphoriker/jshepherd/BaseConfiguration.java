@@ -1,13 +1,11 @@
 package de.metaphoriker.jshepherd;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import de.metaphoriker.jshepherd.annotation.Comment;
 import de.metaphoriker.jshepherd.annotation.CommentSection;
 import de.metaphoriker.jshepherd.annotation.Configuration;
 import de.metaphoriker.jshepherd.annotation.Key;
-import de.metaphoriker.jshepherd.utils.ClassUtils;
+import de.metaphoriker.jshepherd.serialization.YMLSerializer;import de.metaphoriker.jshepherd.utils.ClassUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -20,8 +18,6 @@ import java.util.*;
 
 /** BaseConfiguration is a class that manages configuration options and saves them to a file. */
 public abstract class BaseConfiguration {
-
-  private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
   private final Map<String, ConfigurationOption<?>> configOptions = new LinkedHashMap<>();
   private final Properties properties = new Properties();
@@ -261,13 +257,7 @@ public abstract class BaseConfiguration {
 
   /** Writes the comment for a given configuration option. */
   private void writeValue(String key, ConfigurationOption<?> option) {
-    Object value = option.getValue();
-    String serializedValue;
-    if (value instanceof String) {
-      serializedValue = (String) value; // We do not need to use GSON for Strings
-    } else {
-      serializedValue = GSON.toJson(value);
-    }
+    String serializedValue = YMLSerializer.toYML(option.getValue());
     String delimiter = getDelimiter();
     fileWriter.printf("%s" + delimiter + " %s%n", key, serializedValue);
   }
@@ -293,41 +283,12 @@ public abstract class BaseConfiguration {
 
   /** Assigns a new value to a field, attempting to convert it to the correct type. */
   private void assignNewValue(Field field, String newValue) throws IllegalAccessException {
-    Class<?> fieldType = field.getType();
-
     try {
-      Object convertedValue;
-
-      if (fieldType.equals(String.class)) {
-        convertedValue = newValue; // No conversion needed for Strings
-      } else if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) {
-        convertedValue = Integer.parseInt(newValue);
-      } else if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) {
-        convertedValue = Boolean.parseBoolean(newValue);
-      } else if (fieldType.equals(Double.class) || fieldType.equals(double.class)) {
-        convertedValue = Double.parseDouble(newValue);
-      } else if (fieldType.equals(Float.class) || fieldType.equals(float.class)) {
-        convertedValue = Float.parseFloat(newValue);
-      } else if (fieldType.equals(Long.class) || fieldType.equals(long.class)) {
-        convertedValue = Long.parseLong(newValue);
-      } else if (fieldType.equals(Short.class) || fieldType.equals(short.class)) {
-        convertedValue = Short.parseShort(newValue);
-      } else {
-        // Attempt to deserialize with Gson for other types.
-        convertedValue = GSON.fromJson(newValue, fieldType);
-      }
-
+      Object convertedValue = YMLSerializer.fromYML(newValue, field.getType());
       field.set(this, convertedValue);
-
-    } catch (NumberFormatException | JsonSyntaxException e) {
-      throw new IllegalArgumentException(
-          "Unable to parse the configuration value '"
-              + newValue
-              + "' for field: "
-              + field.getName()
-              + " of type "
-              + fieldType.getName(),
-          e);
+    }
+    catch(NumberFormatException | JsonSyntaxException e) {
+      throw new IllegalArgumentException(String.format("Unable to parse the configuration value '%s' for field: '%s' of type %s", newValue, field.getName(), field.getType().getName()));
     }
   }
 }
