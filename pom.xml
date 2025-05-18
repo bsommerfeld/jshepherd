@@ -4,21 +4,21 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>de.metaphoriker</groupId>
+    <groupId>de.bsommerfeld</groupId>
     <artifactId>jshepherd</artifactId>
-    <version>2.0.2</version>
+    <version>3.0.0</version>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.10.1</version>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.3</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -43,8 +43,8 @@
                         <configuration>
                             <relocations>
                                 <relocation>
-                                    <pattern>com.google.gson</pattern>
-                                    <shadedPattern>de.metaphoriker.jshepherd.shaded.gson</shadedPattern>
+                                    <pattern>com.yaml</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.yaml</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
