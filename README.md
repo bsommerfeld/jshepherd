@@ -200,3 +200,5 @@ test.map.value:
 * **Annotation-Driven Output:** `@Key`, `@Comment`, and `@CommentSection` control the YAML structure and documentation when `useComplexSaveWithComments` is enabled.
 
 For more details on specific annotations or advanced usage, please refer to the library's documentation or source code.
+
+*AI tools were used to assist in the development and refactoring of this library.*
