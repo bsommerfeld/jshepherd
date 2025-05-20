@@ -14,7 +14,6 @@ import java.util.LinkedHashMap;
         "This is the TestConfigurationPojo file header.",
         "It demonstrates the jShepherd configuration capabilities."
 })
-// Add the self-referential generic type parameter
 public class TestConfigurationPojo extends ConfigurablePojo<TestConfigurationPojo> {
 
     @CommentSection({
@@ -34,7 +33,6 @@ public class TestConfigurationPojo extends ConfigurablePojo<TestConfigurationPoj
     @Comment("Test double configuration comment.")
     private double testDouble = 123.456;
 
-    // ... (rest of the fields, constructor, getters, setters as previously defined) ...
     @Key("test-long")
     @Comment("Test long configuration comment.")
     private long testLong = 1234567890L;

@@ -132,7 +132,10 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
             throw new ConfigurationException("Failed to save configuration to " + filePath, e);
         } finally {
             if (tempFilePath != null && Files.exists(tempFilePath)) {
-                try { Files.delete(tempFilePath); } catch (IOException ignored) {}
+                try {
+                    Files.delete(tempFilePath);
+                } catch (IOException ignored) {
+                }
             }
         }
     }
@@ -176,7 +179,8 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                 if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
                     String currentSectionHash = String.join("|", sectionAnnotation.value());
                     if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
-                        if (this.lastCommentSectionHash != null || writer.checkError() /* cheap way to check if anything written */ ) writer.println(); // Blank line before new section unless it's the very first thing after header
+                        if (this.lastCommentSectionHash != null || writer.checkError() /* cheap way to check if anything written */)
+                            writer.println(); // Blank line before new section unless it's the very first thing after header
                         for (String commentLine : sectionAnnotation.value()) writer.println("# " + commentLine);
                         this.lastCommentSectionHash = currentSectionHash;
                     }
@@ -209,8 +213,10 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                     // (if any, from SnakeYAML's own formatting for nested items) are significant.
 
                     boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map) && !valueAsYaml.contains(System.lineSeparator());
-                    if (value instanceof List && ((List<?>)value).isEmpty()) isScalarOrFlowCollection = true; // Empty list as []
-                    if (value instanceof Map && ((Map<?,?>)value).isEmpty()) isScalarOrFlowCollection = true;  // Empty map as {}
+                    if (value instanceof List && ((List<?>) value).isEmpty())
+                        isScalarOrFlowCollection = true; // Empty list as []
+                    if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
+                        isScalarOrFlowCollection = true;  // Empty map as {}
 
 
                     if (isScalarOrFlowCollection) {
@@ -231,7 +237,8 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                 if (fieldIdx < fields.size() - 1) {
                     for (int k = fieldIdx + 1; k < fields.size(); k++) {
                         Field nextField = fields.get(k);
-                        if (Modifier.isStatic(nextField.getModifiers()) || Modifier.isTransient(nextField.getModifiers())) continue;
+                        if (Modifier.isStatic(nextField.getModifiers()) || Modifier.isTransient(nextField.getModifiers()))
+                            continue;
                         if (nextField.getAnnotation(Key.class) != null) {
                             addBlankLine = true;
                             break;
