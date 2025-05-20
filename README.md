@@ -201,4 +201,9 @@ test.map.value:
 
 For more details on specific annotations or advanced usage, please refer to the library's documentation or source code.
 
+## Advanced Topics / Design Insights
+
+For a highly detailed technical documentation covering the design decisions, architecture, and development evolution of JShepherd v3.0 (written in German), please see:
+[Detailed Technical Documentation (German)](docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
+
 *AI tools were used to assist in the development and refactoring of this library.*
