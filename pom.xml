@@ -6,7 +6,7 @@
 
     <groupId>de.bsommerfeld</groupId>
     <artifactId>jshepherd</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
