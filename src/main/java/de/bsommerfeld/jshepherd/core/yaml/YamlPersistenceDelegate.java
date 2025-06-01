@@ -70,53 +70,74 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
 
     @Override
     public T loadInitial(Supplier<T> defaultPojoSupplier) {
-        T instance;
         boolean fileExisted = Files.exists(filePath);
-        boolean usedDefaults = false;
-
+        
         if (fileExisted) {
             try (Reader reader = Files.newBufferedReader(filePath)) {
-                instance = yaml.load(reader);
-                if (instance == null) {
+                // Erstelle eine Default-Instanz, die als Basis dient
+                T defaultInstance = defaultPojoSupplier.get();
+                
+                // Lade die YAML-Daten als Map
+                Yaml simpleYaml = new Yaml();
+                Object yamlData = simpleYaml.load(reader);
+                
+                if (yamlData != null) {
+                    // Aktualisiere nur die Felder, die in der YAML-Datei vorhanden sind
+                    applyYamlDataToInstance(defaultInstance, yamlData);
+                    System.out.println("INFO: Configuration loaded from " + filePath);
+                    return defaultInstance;
+                } else {
                     System.out.println("INFO: Config file '" + filePath + "' was empty or only comments. Using defaults.");
-                    instance = defaultPojoSupplier.get();
-                    usedDefaults = true;
                 }
             } catch (Exception e) {
                 System.err.println("WARNING: Initial load/parse of '" + filePath + "' failed. Using defaults. Error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
-                instance = defaultPojoSupplier.get();
-                usedDefaults = true;
             }
         } else {
             System.out.println("INFO: Config file '" + filePath + "' not found. Creating with defaults.");
-            instance = defaultPojoSupplier.get();
-            usedDefaults = true;
         }
-
-        // Only save if the file didn't exist or if we had to use defaults because the file was empty/problematic
-        if (!fileExisted || usedDefaults) {
-            System.out.println("INFO: Saving initial/default configuration to: " + filePath);
-            save(instance); // This save will use the configured comment strategy
-        }
-        return instance;
+        
+        // Nur wenn die Datei nicht existiert oder das Laden fehlschlug → Default-Instanz erstellen
+        T defaultInstance = defaultPojoSupplier.get();
+        System.out.println("INFO: Saving initial/default configuration to: " + filePath);
+        save(defaultInstance);
+        return defaultInstance;
     }
 
-    private boolean isEffectivelyEmptyOrNewlyDefault(T instance, boolean fileExistedBeforeLoad) {
-        if (!fileExistedBeforeLoad) return true; // If file didn't exist, it's newly default
-
-        // If file existed but loading resulted in a POJO that yaml.load() might return as null (empty/comments-only)
-        // or if it's indistinguishable from a fresh default (this part is hard to check reliably if defaults have values).
-        // A simpler check: if instance came from defaultPojoSupplier directly because loading failed.
-        // The loadInitial logic already re-assigns to default if yaml.load() is null or throws.
-        // So if `instance` is not null here AND fileExisted, it might have been loaded.
-        // The critical case for resaving is if yaml.load() returned null for an existing file.
-        // The current logic in loadInitial already covers creating from default and then calls save().
-        // This helper might be redundant if loadInitial's logic is robust.
-        // Let's rely on: save is called if instance == defaultPojoSupplier.get() (conceptually)
-        // or if file was empty (yaml.load() == null). The current loadInitial handles this.
-        return false; // The logic in loadInitial is the primary driver for initial save.
+    private void applyYamlDataToInstance(T target, Object yamlData) {
+        if (!(yamlData instanceof Map)) {
+            System.err.println("WARNING: YAML data is not a map structure. Cannot apply to instance.");
+            return;
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> yamlMap = (Map<String, Object>) yamlData;
+        
+        List<Field> fields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
+        for (Field field : fields) {
+            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+                continue;
+            }
+            
+            Key keyAnnotation = field.getAnnotation(Key.class);
+            if (keyAnnotation == null) continue;
+            
+            String yamlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+            
+            // Nur setzen, wenn der Schlüssel in der YAML-Datei vorhanden ist
+            if (yamlMap.containsKey(yamlKey)) {
+                try {
+                    field.setAccessible(true);
+                    Object yamlValue = yamlMap.get(yamlKey);
+                    field.set(target, yamlValue);
+                } catch (IllegalAccessException e) {
+                    System.err.println("WARNING: Could not set field '" + field.getName() + "' during YAML application: " + e.getMessage());
+                } catch (IllegalArgumentException e) {
+                    System.err.println("WARNING: Type mismatch for field '" + field.getName() + "': " + e.getMessage());
+                }
+            }
+            // Wenn der Schlüssel nicht vorhanden ist, bleibt der Default-Wert erhalten!
+        }
     }
-
 
     @Override
     public void save(T pojoInstance) {
