@@ -74,15 +74,12 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
         
         if (fileExisted) {
             try (Reader reader = Files.newBufferedReader(filePath)) {
-                // Erstelle eine Default-Instanz, die als Basis dient
                 T defaultInstance = defaultPojoSupplier.get();
                 
-                // Lade die YAML-Daten als Map
                 Yaml simpleYaml = new Yaml();
                 Object yamlData = simpleYaml.load(reader);
                 
                 if (yamlData != null) {
-                    // Aktualisiere nur die Felder, die in der YAML-Datei vorhanden sind
                     applyYamlDataToInstance(defaultInstance, yamlData);
                     System.out.println("INFO: Configuration loaded from " + filePath);
                     return defaultInstance;
@@ -96,7 +93,6 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
             System.out.println("INFO: Config file '" + filePath + "' not found. Creating with defaults.");
         }
         
-        // Nur wenn die Datei nicht existiert oder das Laden fehlschlug → Default-Instanz erstellen
         T defaultInstance = defaultPojoSupplier.get();
         System.out.println("INFO: Saving initial/default configuration to: " + filePath);
         save(defaultInstance);
@@ -123,20 +119,70 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
             
             String yamlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
             
-            // Nur setzen, wenn der Schlüssel in der YAML-Datei vorhanden ist
             if (yamlMap.containsKey(yamlKey)) {
                 try {
                     field.setAccessible(true);
                     Object yamlValue = yamlMap.get(yamlKey);
-                    field.set(target, yamlValue);
+                    
+                    Object convertedValue = convertNumericTypeIfNeeded(yamlValue, field.getType());
+                    
+                    field.set(target, convertedValue);
                 } catch (IllegalAccessException e) {
                     System.err.println("WARNING: Could not set field '" + field.getName() + "' during YAML application: " + e.getMessage());
                 } catch (IllegalArgumentException e) {
                     System.err.println("WARNING: Type mismatch for field '" + field.getName() + "': " + e.getMessage());
                 }
             }
-            // Wenn der Schlüssel nicht vorhanden ist, bleibt der Default-Wert erhalten!
         }
+    }
+
+    /**
+     * Converts the given value to a target numeric type if the type differs and is compatible.
+     * This method ensures that numeric types can be safely converted to the desired numeric target type.
+     * If the value is null or already matches the target type, it is returned as is.
+     *
+     * @param value      The value to be converted. It is expected to be either null or an instance of a numeric type.
+     * @param targetType The class of the desired target numeric type (e.g., Integer.class, float.class).
+     *                   The target type must be a numeric type for the conversion to occur.
+     * @return The converted value as an instance of the target numeric type if conversion is required and possible.
+     *         If no conversion is needed, the original value is returned. Returns null if the input value is null.
+     */
+    private Object convertNumericTypeIfNeeded(Object value, Class<?> targetType) {
+        if (value == null) return null;
+        
+        // No convertion needed when types fit
+        if (targetType.isAssignableFrom(value.getClass())) {
+            return value;
+        }
+        
+        if (value instanceof Number && isNumericType(targetType)) {
+            Number numValue = (Number) value;
+            
+            if (targetType == float.class || targetType == Float.class) {
+                return numValue.floatValue();
+            } else if (targetType == double.class || targetType == Double.class) {
+                return numValue.doubleValue();
+            } else if (targetType == int.class || targetType == Integer.class) {
+                return numValue.intValue();
+            } else if (targetType == long.class || targetType == Long.class) {
+                return numValue.longValue();
+            } else if (targetType == short.class || targetType == Short.class) {
+                return numValue.shortValue();
+            } else if (targetType == byte.class || targetType == Byte.class) {
+                return numValue.byteValue();
+            }
+        }
+        
+        return value;
+    }
+
+    private boolean isNumericType(Class<?> type) {
+        return type == int.class || type == Integer.class ||
+               type == long.class || type == Long.class ||
+               type == float.class || type == Float.class ||
+               type == double.class || type == Double.class ||
+               type == short.class || type == Short.class ||
+               type == byte.class || type == Byte.class;
     }
 
     @Override
@@ -282,12 +328,14 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
     public void reload(T pojoInstanceToUpdate) {
         if (!Files.exists(filePath)) {
             System.out.println("INFO: Configuration file '" + filePath + "' not found on reload attempt. Current values in instance remain.");
-            return;
         }
+        
         try (Reader reader = Files.newBufferedReader(filePath)) {
-            T freshPojo = yaml.load(reader);
-            if (freshPojo != null) {
-                updatePojoFields(pojoInstanceToUpdate, freshPojo);
+            Yaml simpleYaml = new Yaml();
+            Object yamlData = simpleYaml.load(reader);
+            
+            if (yamlData != null) {
+                applyYamlDataToInstance(pojoInstanceToUpdate, yamlData);
                 System.out.println("INFO: Configuration reloaded into existing instance from " + filePath);
             } else {
                 System.out.println("INFO: Configuration file '" + filePath + "' was empty or unparsable on reload. Current values in instance remain (likely defaults).");
@@ -296,26 +344,6 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
             throw new ConfigurationException("Error reloading configuration from " + filePath, e);
         } catch (Exception e) {
             throw new ConfigurationException("Error parsing YAML during reload from " + filePath, e);
-        }
-    }
-
-    private void updatePojoFields(T target, T source) {
-        if (source == null || !target.getClass().isAssignableFrom(source.getClass())) { // Check assignability
-            System.err.println("WARNING: Cannot update POJO fields during reload. Source is null or types incompatible.");
-            return;
-        }
-        List<Field> fields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
-        for (Field field : fields) {
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
-                continue;
-            }
-            try {
-                field.setAccessible(true);
-                Object valueFromSource = field.get(source);
-                field.set(target, valueFromSource);
-            } catch (IllegalAccessException e) {
-                System.err.println("WARNING: Could not update field '" + field.getName() + "' during reload: " + e.getMessage());
-            }
         }
     }
 }
