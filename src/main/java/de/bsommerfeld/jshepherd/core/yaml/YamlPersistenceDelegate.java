@@ -72,24 +72,29 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
     public T loadInitial(Supplier<T> defaultPojoSupplier) {
         T instance;
         boolean fileExisted = Files.exists(filePath);
+        boolean usedDefaults = false;
+
         if (fileExisted) {
             try (Reader reader = Files.newBufferedReader(filePath)) {
                 instance = yaml.load(reader);
                 if (instance == null) {
                     System.out.println("INFO: Config file '" + filePath + "' was empty or only comments. Using defaults.");
                     instance = defaultPojoSupplier.get();
+                    usedDefaults = true;
                 }
             } catch (Exception e) {
                 System.err.println("WARNING: Initial load/parse of '" + filePath + "' failed. Using defaults. Error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 instance = defaultPojoSupplier.get();
+                usedDefaults = true;
             }
         } else {
             System.out.println("INFO: Config file '" + filePath + "' not found. Creating with defaults.");
             instance = defaultPojoSupplier.get();
+            usedDefaults = true;
         }
 
-        // Save if defaults were used because file didn't exist or was empty/problematic
-        if (!fileExisted || (instance != null && isEffectivelyEmptyOrNewlyDefault(instance, fileExisted))) {
+        // Only save if the file didn't exist or if we had to use defaults because the file was empty/problematic
+        if (!fileExisted || usedDefaults) {
             System.out.println("INFO: Saving initial/default configuration to: " + filePath);
             save(instance); // This save will use the configured comment strategy
         }

@@ -8,81 +8,131 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner; // For pausing
+import java.util.Scanner;
+import java.util.Map;
 
 public class AppMain {
     public static void main(String[] args) {
-        Path complexSaveFile = Paths.get("test-config-complex.yaml");
-        Path simpleSaveFile = Paths.get("test-config-simple.yaml");
+        Path configFile = Paths.get("test-config-complex.yaml");
+        Scanner scanner = new Scanner(System.in);
 
-        System.out.println("jShepherd Configuration Demo");
-        System.out.println("============================");
+        System.out.println("jShepherd Configuration Manager");
+        System.out.println("==============================");
+        System.out.println("Using file: " + configFile.toAbsolutePath());
 
-        // ---- Test with Complex (Annotation-Driven Comments) Save ----
-        System.out.println("\n--- Testing Complex Save (with comments) ---");
-        System.out.println("Using file: " + complexSaveFile.toAbsolutePath());
-        try {
-            Files.deleteIfExists(complexSaveFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        TestConfigurationPojo complexConfig = ConfigurationLoader.load(
-                complexSaveFile,
+        // Load configuration from file (or create with defaults if it doesn't exist)
+        TestConfigurationPojo config = ConfigurationLoader.load(
+                configFile,
                 TestConfigurationPojo.class,
                 TestConfigurationPojo::new,
                 true // Enable complex save with comments
         );
 
-        System.out.println("\nInitial values (from defaults or empty file):");
-        printPojoState(complexConfig);
+        System.out.println("\nInitial configuration values:");
+        printPojoState(config);
 
-        System.out.println("\nModifying POJO values...");
-        complexConfig.setTestString("A New String Value!");
-        complexConfig.setTestInt(999);
-        List<String> updatedList = new ArrayList<>(complexConfig.getTestList());
-        updatedList.add("AppendedItem");
-        complexConfig.setTestList(updatedList);
-        complexConfig.getTestMap().put("newKey", "newValueFromApp");
+        boolean running = true;
+        while (running) {
+            System.out.println("\nOptions:");
+            System.out.println("1. View current configuration");
+            System.out.println("2. Modify string value");
+            System.out.println("3. Modify integer value");
+            System.out.println("4. Modify boolean value");
+            System.out.println("5. Add item to list");
+            System.out.println("6. Add entry to map");
+            System.out.println("7. Save configuration");
+            System.out.println("8. View configuration file");
+            System.out.println("9. Reload configuration from file");
+            System.out.println("0. Exit");
+            System.out.print("\nEnter your choice: ");
 
-        System.out.println("\nSaving modified POJO (complex save)...");
-        complexConfig.save();
-        displayFileContent(complexSaveFile);
+            String choice = scanner.nextLine();
 
-        // Test reload
-        System.out.println("\nSimulating external file modification for reload test...");
-        System.out.println("For example, manually change 'test-int' in '" + complexSaveFile.getFileName() + "' to 777 and save the file.");
-        System.out.print("Press Enter to continue after manual edit (or just proceed if no edit)...");
-        new Scanner(System.in).nextLine(); // Pause for manual edit
+            switch (choice) {
+                case "1":
+                    System.out.println("\nCurrent configuration values:");
+                    printPojoState(config);
+                    break;
 
-        System.out.println("\nReloading POJO...");
-        complexConfig.reload();
-        System.out.println("\nValues after reload:");
-        printPojoState(complexConfig);
+                case "2":
+                    System.out.print("Enter new string value: ");
+                    String newString = scanner.nextLine();
+                    config.setTestString(newString);
+                    System.out.println("String value updated to: " + newString);
+                    break;
 
-        // ---- Test with Simple Save (no detailed comments) ----
-        System.out.println("\n\n--- Testing Simple Save (minimal comments) ---");
-        System.out.println("Using file: " + simpleSaveFile.toAbsolutePath());
-        try {
-            Files.deleteIfExists(simpleSaveFile);
-        } catch (IOException e) {
-            e.printStackTrace();
+                case "3":
+                    System.out.print("Enter new integer value: ");
+                    try {
+                        int newInt = Integer.parseInt(scanner.nextLine());
+                        config.setTestInt(newInt);
+                        System.out.println("Integer value updated to: " + newInt);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid number format. Please try again.");
+                    }
+                    break;
+
+                case "4":
+                    System.out.print("Enter new boolean value (true/false): ");
+                    String boolStr = scanner.nextLine().toLowerCase();
+                    if (boolStr.equals("true") || boolStr.equals("false")) {
+                        boolean newBool = Boolean.parseBoolean(boolStr);
+                        config.setTestBoolean(newBool);
+                        System.out.println("Boolean value updated to: " + newBool);
+                    } else {
+                        System.out.println("Invalid boolean value. Please enter 'true' or 'false'.");
+                    }
+                    break;
+
+                case "5":
+                    System.out.print("Enter new list item: ");
+                    String newItem = scanner.nextLine();
+                    List<String> updatedList = new ArrayList<>(config.getTestList());
+                    updatedList.add(newItem);
+                    config.setTestList(updatedList);
+                    System.out.println("Item added to list: " + newItem);
+                    break;
+
+                case "6":
+                    System.out.print("Enter new map key: ");
+                    String newKey = scanner.nextLine();
+                    System.out.print("Enter value for key '" + newKey + "': ");
+                    String newValue = scanner.nextLine();
+                    config.getTestMap().put(newKey, newValue);
+                    System.out.println("Added to map: " + newKey + " = " + newValue);
+                    break;
+
+                case "7":
+                    System.out.println("Saving configuration...");
+                    config.save();
+                    System.out.println("Configuration saved to " + configFile);
+                    break;
+
+                case "8":
+                    displayFileContent(configFile);
+                    break;
+
+                case "9":
+                    System.out.println("Reloading configuration from file...");
+                    config.reload();
+                    System.out.println("Configuration reloaded.");
+                    System.out.println("\nUpdated configuration values:");
+                    printPojoState(config);
+                    break;
+
+                case "0":
+                    System.out.println("Exiting. Any unsaved changes will be lost.");
+                    running = false;
+                    break;
+
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+                    break;
+            }
         }
 
-        TestConfigurationPojo simpleConfig = ConfigurationLoader.load(
-                simpleSaveFile,
-                TestConfigurationPojo.class,
-                TestConfigurationPojo::new,
-                false // Disable complex save, use simple dump
-        );
-        // Modify slightly to see a different output
-        simpleConfig.setTestString("Simple Save Output");
-        simpleConfig.setTestBoolean(false);
-        System.out.println("\nSaving POJO (simple save)...");
-        simpleConfig.save();
-        displayFileContent(simpleSaveFile);
-
-        System.out.println("\nDemo finished.");
+        scanner.close();
+        System.out.println("\nApplication closed.");
     }
 
     private static void printPojoState(TestConfigurationPojo pojo) {

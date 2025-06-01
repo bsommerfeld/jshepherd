@@ -25,7 +25,7 @@ public class ClassUtils {
             fields.addAll(Arrays.asList(currentClass.getDeclaredFields()));
             currentClass = currentClass.getSuperclass();
         }
-        Collections.reverse(fields); // Superclass fields first for consistent order
+        // Removed reverse operation to maintain declaration order
         return fields;
     }
 }

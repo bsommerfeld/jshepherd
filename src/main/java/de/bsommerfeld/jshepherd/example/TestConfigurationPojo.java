@@ -43,7 +43,7 @@ public class TestConfigurationPojo extends ConfigurablePojo<TestConfigurationPoj
 
     @CommentSection("Collections and Boolean")
     @Key("test-list")
-    @Comment("Test list configuration comment.")
+    @Comment({"Test list configuration comment.", "TEST"})
     private List<String> testList = Arrays.asList("item1", "item2", "item3");
 
     @Key("test-boolean")
