@@ -3,6 +3,7 @@ package de.bsommerfeld.jshepherd.example;
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.PostInject;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 
 import java.util.Arrays;
@@ -59,6 +60,14 @@ public class TestConfigurationPojo extends ConfigurablePojo<TestConfigurationPoj
         testMap.put("keyA", "valueA");
         testMap.put("keyB", 100);
         testMap.put("keyC", true);
+    }
+
+    @PostInject
+    protected void postInject() {
+        System.out.println("INFO: PostInject method called.");
+        // Perform any post-initialization tasks here.
+        // For example validate configuration options
+        // Or update properties
     }
 
     public String getTestString() {

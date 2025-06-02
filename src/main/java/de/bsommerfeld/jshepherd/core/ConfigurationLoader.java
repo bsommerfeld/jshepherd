@@ -1,8 +1,10 @@
 package de.bsommerfeld.jshepherd.core;
 
+import de.bsommerfeld.jshepherd.annotation.PostInject;
 import de.bsommerfeld.jshepherd.core.yaml.YamlPersistenceDelegateFactory;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 public class ConfigurationLoader {
@@ -41,6 +43,9 @@ public class ConfigurationLoader {
         // but it internally casts to PersistenceDelegate<SELF>. So this is fine.
         pojoInstance._setPersistenceDelegate(delegate);
 
+        // Invoke all with @PostInject annotated methods
+        invokePostInjectMethods(pojoInstance);
+
         return pojoInstance;
     }
 
@@ -53,4 +58,18 @@ public class ConfigurationLoader {
             Path filePath, Class<T> pojoClass, Supplier<T> defaultPojoSupplier) {
         return load(filePath, pojoClass, defaultPojoSupplier, true); // Default to complex save
     }
+
+    private static void invokePostInjectMethods(Object instance) {
+        Arrays.stream(instance.getClass().getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(PostInject.class))
+                .forEach(method -> {
+                    try {
+                        method.setAccessible(true);
+                        method.invoke(instance);
+                    } catch (Exception e) {
+                        throw new ConfigurationException("Failed to invoke @PostInject method: " + method.getName(), e);
+                    }
+                });
+    }
+
 }
