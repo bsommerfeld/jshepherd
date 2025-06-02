@@ -1,4 +1,4 @@
-package de.bsommerfeld.jshepherd.core.yaml;
+package de.bsommerfeld.jshepherd.core.toml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.CommentSection;
@@ -7,11 +7,10 @@ import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.core.ConfigurationException;
 import de.bsommerfeld.jshepherd.core.PersistenceDelegate;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
-import org.yaml.snakeyaml.DumperOptions;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.Constructor;
-import org.yaml.snakeyaml.representer.Representer;
+import org.tomlj.Toml;
+import org.tomlj.TomlArray;
+import org.tomlj.TomlParseResult;
+import org.tomlj.TomlTable;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -21,79 +20,45 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.function.Supplier;
 
-// T is the concrete POJO type extending the now generic ConfigurablePojo
-class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements PersistenceDelegate<T> {
+/**
+ * Implementation of PersistenceDelegate for TOML format using TOMLJ.
+ * This class handles loading, saving, and reloading of configuration objects in TOML format.
+ *
+ * @param <T> The type of ConfigurablePojo this delegate handles.
+ */
+class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> implements PersistenceDelegate<T> {
     private final Path filePath;
     private final boolean useComplexSaveWithComments;
     private String lastCommentSectionHash = null;
 
-    // Lazy initialization - will be set on first use
-    private Yaml yaml; // For loading the whole POJO and for simple dump
-    private Yaml valueDumper; // For dumping individual field values in complex save
-
-    YamlPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
+    TomlPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         this.filePath = filePath;
         this.useComplexSaveWithComments = useComplexSaveWithComments;
-    }
-
-    private void initializeYamlIfNeeded(Class<T> pojoClass) {
-        if (this.yaml != null) {
-            return; // Already initialized
-        }
-
-        // Main Yaml instance configuration
-        DumperOptions mainDumperOptions = new DumperOptions();
-        mainDumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        mainDumperOptions.setPrettyFlow(true);
-        mainDumperOptions.setIndent(2);
-        mainDumperOptions.setIndicatorIndent(1);
-        mainDumperOptions.setSplitLines(false);
-        mainDumperOptions.setAllowUnicode(true);
-        mainDumperOptions.setExplicitStart(false); // No "---" for main document dump
-        mainDumperOptions.setExplicitEnd(false);   // No "..."
-
-        Representer representer = new Representer(mainDumperOptions);
-        representer.getPropertyUtils().setSkipMissingProperties(true);
-
-        LoaderOptions loaderOptions = new LoaderOptions();
-        this.yaml = new Yaml(new Constructor(pojoClass, loaderOptions), representer, mainDumperOptions);
-
-        // Yaml instance for dumping individual values (no document markers)
-        DumperOptions valueDumperOptions = new DumperOptions();
-        valueDumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK); // Or AUTO
-        valueDumperOptions.setIndent(2); // Will be relative to its context
-        valueDumperOptions.setIndicatorIndent(1);
-        valueDumperOptions.setSplitLines(false);
-        valueDumperOptions.setAllowUnicode(true);
-        valueDumperOptions.setExplicitStart(false);
-        valueDumperOptions.setExplicitEnd(false);
-        this.valueDumper = new Yaml(new Representer(valueDumperOptions), valueDumperOptions);
     }
 
     @Override
     public T loadInitial(Supplier<T> defaultPojoSupplier) {
         boolean fileExisted = Files.exists(filePath);
 
-        T defaultInstance = defaultPojoSupplier.get();
-
-        // Initialize YAML with the actual POJO class
-        initializeYamlIfNeeded((Class<T>) defaultInstance.getClass());
-
         if (fileExisted) {
-            try (Reader reader = Files.newBufferedReader(filePath)) {
-                Yaml simpleYaml = new Yaml();
-                Object yamlData = simpleYaml.load(reader);
+            try {
+                T defaultInstance = defaultPojoSupplier.get();
 
-                if (yamlData != null) {
-                    applyYamlDataToInstance(defaultInstance, yamlData);
+                // Try to parse TOML
+                TomlParseResult tomlResult = Toml.parse(filePath);
+
+                if (tomlResult != null && !tomlResult.isEmpty()) {
+                    applyTomlDataToInstance(defaultInstance, tomlResult);
                     System.out.println("INFO: Configuration loaded from " + filePath);
                     return defaultInstance;
                 } else {
-                    System.out.println("INFO: Config file '" + filePath + "' was empty or only comments. Using defaults.");
+                    System.out.println("INFO: Config file '" + filePath + "' was empty. Using defaults.");
                 }
             } catch (Exception e) {
                 System.err.println("WARNING: Initial load/parse of '" + filePath + "' failed. Using defaults. Error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
@@ -102,46 +67,85 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
             System.out.println("INFO: Config file '" + filePath + "' not found. Creating with defaults.");
         }
 
+        T defaultInstance = defaultPojoSupplier.get();
         System.out.println("INFO: Saving initial/default configuration to: " + filePath);
         save(defaultInstance);
         return defaultInstance;
     }
 
-    private void applyYamlDataToInstance(T target, Object yamlData) {
-        if (!(yamlData instanceof Map)) {
-            System.err.println("WARNING: YAML data is not a map structure. Cannot apply to instance.");
-            return;
-        }
-        
-        @SuppressWarnings("unchecked")
-        Map<String, Object> yamlMap = (Map<String, Object>) yamlData;
-        
+    private void applyTomlDataToInstance(T target, TomlParseResult tomlData) {
         List<Field> fields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
         for (Field field : fields) {
             if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
                 continue;
             }
-            
+
             Key keyAnnotation = field.getAnnotation(Key.class);
             if (keyAnnotation == null) continue;
-            
-            String yamlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
-            
-            if (yamlMap.containsKey(yamlKey)) {
+
+            String tomlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+
+            if (tomlData.contains(tomlKey)) {
                 try {
                     field.setAccessible(true);
-                    Object yamlValue = yamlMap.get(yamlKey);
-                    
-                    Object convertedValue = convertNumericTypeIfNeeded(yamlValue, field.getType());
-                    
-                    field.set(target, convertedValue);
+                    Object tomlValue = getTomlValue(tomlData, tomlKey, field.getType());
+
+                    if (tomlValue != null) {
+                        Object convertedValue = convertNumericTypeIfNeeded(tomlValue, field.getType());
+                        field.set(target, convertedValue);
+                    }
                 } catch (IllegalAccessException e) {
-                    System.err.println("WARNING: Could not set field '" + field.getName() + "' during YAML application: " + e.getMessage());
+                    System.err.println("WARNING: Could not set field '" + field.getName() + "' during TOML application: " + e.getMessage());
                 } catch (IllegalArgumentException e) {
                     System.err.println("WARNING: Type mismatch for field '" + field.getName() + "': " + e.getMessage());
                 }
             }
         }
+    }
+
+    private Object getTomlValue(TomlParseResult tomlData, String key, Class<?> targetType) {
+        if (targetType == String.class) {
+            return tomlData.getString(key);
+        } else if (targetType == Integer.class || targetType == int.class) {
+            Long value = tomlData.getLong(key);
+            return value != null ? value.intValue() : null;
+        } else if (targetType == Long.class || targetType == long.class) {
+            return tomlData.getLong(key);
+        } else if (targetType == Double.class || targetType == double.class) {
+            return tomlData.getDouble(key);
+        } else if (targetType == Float.class || targetType == float.class) {
+            Double value = tomlData.getDouble(key);
+            return value != null ? value.floatValue() : null;
+        } else if (targetType == Boolean.class || targetType == boolean.class) {
+            return tomlData.getBoolean(key);
+        } else if (targetType == LocalDate.class) {
+            return tomlData.getLocalDate(key);
+        } else if (targetType == LocalDateTime.class) {
+            return tomlData.getLocalDateTime(key);
+        } else if (targetType == LocalTime.class) {
+            return tomlData.getLocalTime(key);
+        } else if (targetType.isArray() || List.class.isAssignableFrom(targetType)) {
+            TomlArray array = tomlData.getArray(key);
+            if (array == null) return null;
+
+            List<Object> list = new ArrayList<>();
+            for (int i = 0; i < array.size(); i++) {
+                list.add(array.get(i));
+            }
+            return list;
+        } else if (Map.class.isAssignableFrom(targetType)) {
+            TomlTable table = tomlData.getTable(key);
+            if (table == null) return null;
+
+            Map<String, Object> map = new HashMap<>();
+            for (String tableKey : table.keySet()) {
+                map.put(tableKey, table.get(tableKey));
+            }
+            return map;
+        }
+
+        // For other types, try to get as Object
+        return tomlData.get(key);
     }
 
     /**
@@ -157,15 +161,15 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
      */
     private Object convertNumericTypeIfNeeded(Object value, Class<?> targetType) {
         if (value == null) return null;
-        
-        // No convertion needed when types fit
+
+        // No conversion needed when types fit
         if (targetType.isAssignableFrom(value.getClass())) {
             return value;
         }
-        
+
         if (value instanceof Number && isNumericType(targetType)) {
             Number numValue = (Number) value;
-            
+
             if (targetType == float.class || targetType == Float.class) {
                 return numValue.floatValue();
             } else if (targetType == double.class || targetType == Double.class) {
@@ -180,24 +184,21 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                 return numValue.byteValue();
             }
         }
-        
+
         return value;
     }
 
     private boolean isNumericType(Class<?> type) {
         return type == int.class || type == Integer.class ||
-               type == long.class || type == Long.class ||
-               type == float.class || type == Float.class ||
-               type == double.class || type == Double.class ||
-               type == short.class || type == Short.class ||
-               type == byte.class || type == Byte.class;
+                type == long.class || type == Long.class ||
+                type == float.class || type == Float.class ||
+                type == double.class || type == Double.class ||
+                type == short.class || type == Short.class ||
+                type == byte.class || type == Byte.class;
     }
 
     @Override
     public void save(T pojoInstance) {
-        // Ensure YAML is initialized before saving
-        initializeYamlIfNeeded((Class<T>) pojoInstance.getClass());
-
         Path parentDir = filePath.getParent();
         Path tempFilePath = null;
         try {
@@ -223,17 +224,40 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
         }
     }
 
-
     private void saveSimpleDump(T pojoInstance, Path targetPath) throws IOException {
-        try (Writer writer = Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+        try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
             Comment classComment = pojoInstance.getClass().getAnnotation(Comment.class);
             if (classComment != null && classComment.value().length > 0) {
                 for (String line : classComment.value()) {
-                    writer.write("# " + line + System.lineSeparator());
+                    writer.println("# " + line);
                 }
-                writer.write(System.lineSeparator());
+                writer.println();
             }
-            yaml.dump(pojoInstance, writer);
+
+            // Convert POJO to TOML format
+            List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
+            for (Field field : fields) {
+                if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+                    continue;
+                }
+
+                Key keyAnnotation = field.getAnnotation(Key.class);
+                if (keyAnnotation == null) continue;
+
+                String tomlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(pojoInstance);
+
+                    if (value != null) {
+                        writeTomlValue(writer, tomlKey, value);
+                    }
+                    // Skip null values in TOML - they don't have a standard representation
+                } catch (IllegalAccessException e) {
+                    System.err.println("ERROR: Could not access field " + field.getName() + " during save.");
+                }
+            }
         }
     }
 
@@ -257,13 +281,13 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                 Key keyAnnotation = field.getAnnotation(Key.class);
                 if (keyAnnotation == null) continue;
 
-                String yamlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+                String tomlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
 
                 CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
                 if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
                     String currentSectionHash = String.join("|", sectionAnnotation.value());
                     if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
-                        if (this.lastCommentSectionHash != null || writer.checkError() /* cheap way to check if anything written */)
+                        if (this.lastCommentSectionHash != null)
                             writer.println(); // Blank line before new section unless it's the very first thing after header
                         for (String commentLine : sectionAnnotation.value()) writer.println("# " + commentLine);
                         this.lastCommentSectionHash = currentSectionHash;
@@ -275,48 +299,18 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
                     for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
                 }
 
-                writer.print(yamlKey + ":"); // e.g., "test-map:" or "test-list:"
-                Object value;
                 try {
-                    value = field.get(pojoInstance);
+                    Object value = field.get(pojoInstance);
+                    if (value != null) {
+                        writeTomlValue(writer, tomlKey, value);
+                    }
+                    // Skip null values in TOML
                 } catch (IllegalAccessException e) {
                     System.err.println("ERROR: Could not access field " + field.getName() + " during save.");
                     continue;
                 }
 
-                if (value == null) {
-                    writer.println(" null"); // Standard YAML for null
-                } else {
-                    String valueAsYaml = this.valueDumper.dump(value); // Use pre-configured valueDumper
-
-                    // Remove a single trailing newline if SnakeYAML adds one to the overall dumped fragment
-                    if (valueAsYaml.endsWith(System.lineSeparator())) {
-                        valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - System.lineSeparator().length());
-                    }
-                    // Note: Do NOT do a global .trim() on valueAsYaml here, as internal leading spaces
-                    // (if any, from SnakeYAML's own formatting for nested items) are significant.
-
-                    boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map) && !valueAsYaml.contains(System.lineSeparator());
-                    if (value instanceof List && ((List<?>) value).isEmpty())
-                        isScalarOrFlowCollection = true; // Empty list as []
-                    if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
-                        isScalarOrFlowCollection = true;  // Empty map as {}
-
-
-                    if (isScalarOrFlowCollection) {
-                        // For scalars or collections dumped in flow style (e.g., "[]", "{}")
-                        writer.println(" " + valueAsYaml.trim()); // .trim() here is safe for single-line values
-                    } else {
-                        // For block style lists, maps, or other multi-line scalars
-                        writer.println(); // Start the block value on a new line
-                        valueAsYaml.lines().forEach(line -> {
-                            // Consistently indent every line of the dumped block value
-                            writer.println("  " + line);
-                        });
-                    }
-                }
-
-                // Logic for blank line after entry (from previous solution)
+                // Logic for blank line after entry
                 boolean addBlankLine = false;
                 if (fieldIdx < fields.size() - 1) {
                     for (int k = fieldIdx + 1; k < fields.size(); k++) {
@@ -336,26 +330,92 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> implements Persiste
         }
     }
 
+    private void writeTomlValue(PrintWriter writer, String key, Object value) {
+        if (value instanceof String) {
+            writer.println(key + " = \"" + escapeString((String) value) + "\"");
+        } else if (value instanceof Number || value instanceof Boolean) {
+            writer.println(key + " = " + value);
+        } else if (value instanceof LocalDate) {
+            writer.println(key + " = " + value);
+        } else if (value instanceof LocalDateTime) {
+            writer.println(key + " = " + value);
+        } else if (value instanceof LocalTime) {
+            writer.println(key + " = " + value);
+        } else if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            if (list.isEmpty()) {
+                writer.println(key + " = []");
+            } else {
+                writer.print(key + " = [");
+                for (int i = 0; i < list.size(); i++) {
+                    Object item = list.get(i);
+                    if (item instanceof String) {
+                        writer.print("\"" + escapeString((String) item) + "\"");
+                    } else {
+                        writer.print(item);
+                    }
+                    if (i < list.size() - 1) {
+                        writer.print(", ");
+                    }
+                }
+                writer.println("]");
+            }
+        } else if (value instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            if (map.isEmpty()) {
+                // For empty maps, we can use inline table syntax
+                writer.println(key + " = {}");
+            } else {
+                // For non-empty maps, use TOML table syntax
+                writer.println("[" + key + "]");
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    Object entryKey = entry.getKey();
+                    Object entryValue = entry.getValue();
+                    if (entryValue instanceof String) {
+                        writer.println(entryKey + " = \"" + escapeString((String) entryValue) + "\"");
+                    } else if (entryValue instanceof Number || entryValue instanceof Boolean) {
+                        writer.println(entryKey + " = " + entryValue);
+                    } else {
+                        writer.println(entryKey + " = \"" + entryValue + "\"");
+                    }
+                }
+            }
+        } else {
+            // For unknown types, convert to string and escape
+            writer.println(key + " = \"" + escapeString(value.toString()) + "\"");
+        }
+    }
+
+    private String escapeString(String str) {
+        return str.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\f", "\\f")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
     @Override
     public void reload(T pojoInstanceToUpdate) {
         if (!Files.exists(filePath)) {
             System.out.println("INFO: Configuration file '" + filePath + "' not found on reload attempt. Current values in instance remain.");
+            return; // Fixed: Missing return statement
         }
-        
-        try (Reader reader = Files.newBufferedReader(filePath)) {
-            Yaml simpleYaml = new Yaml();
-            Object yamlData = simpleYaml.load(reader);
-            
-            if (yamlData != null) {
-                applyYamlDataToInstance(pojoInstanceToUpdate, yamlData);
+
+        try {
+            TomlParseResult tomlResult = Toml.parse(filePath);
+
+            if (tomlResult != null && !tomlResult.isEmpty()) {
+                applyTomlDataToInstance(pojoInstanceToUpdate, tomlResult);
                 System.out.println("INFO: Configuration reloaded into existing instance from " + filePath);
             } else {
-                System.out.println("INFO: Configuration file '" + filePath + "' was empty or unparsable on reload. Current values in instance remain (likely defaults).");
+                System.out.println("INFO: Configuration file '" + filePath + "' was empty on reload. Current values in instance remain (likely defaults).");
             }
         } catch (IOException e) {
             throw new ConfigurationException("Error reloading configuration from " + filePath, e);
         } catch (Exception e) {
-            throw new ConfigurationException("Error parsing YAML during reload from " + filePath, e);
+            throw new ConfigurationException("Error parsing TOML during reload from " + filePath, e);
         }
     }
 }

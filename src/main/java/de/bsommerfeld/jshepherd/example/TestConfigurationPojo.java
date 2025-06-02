@@ -26,7 +26,7 @@ public class TestConfigurationPojo extends ConfigurablePojo<TestConfigurationPoj
     private String testString = "defaultValue";
 
     @Key("test-int")
-    @Comment("Test int configuration comment.")
+    @Comment({"Test int configuration comment.", "Second comment."})
     private int testInt = 123;
 
     @CommentSection("Floating Point and Large Numbers")

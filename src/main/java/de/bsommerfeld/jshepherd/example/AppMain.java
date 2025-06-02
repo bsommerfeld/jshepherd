@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class AppMain {
     public static void main(String[] args) {
-        Path configFile = Paths.get("test-config-complex.yaml");
+        Path configFile = Paths.get("test-config-complex.json");
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("jShepherd Configuration Manager");
@@ -23,7 +23,6 @@ public class AppMain {
         // Load configuration from file (or create with defaults if it doesn't exist)
         TestConfigurationPojo config = ConfigurationLoader.load(
                 configFile,
-                TestConfigurationPojo.class,
                 TestConfigurationPojo::new,
                 true // Enable complex save with comments
         );

@@ -1,7 +1,6 @@
 # JShepherd
 
-JShepherd is an automatic configuration management library for Java.
-With JShepherd, you can easily define, load, save, and manage your application's configuration files in YAML format, using a clean, POJO-centric approach driven by annotations.
+JShepherd is an annotation based automatic configuration management library for Java that supports multiple formats (YAML, JSON, TOML, Properties) with automatic format detection based on file extensions.
 
 ## Installation
 
@@ -21,6 +20,7 @@ With JShepherd, you can easily define, load, save, and manage your application's
     <version>VERSION</version> 
 </dependency>
 ```
+
 ### Gradle
 
 ```groovy
@@ -39,171 +39,130 @@ dependencies {
 
 Replace `VERSION` with the latest version of JShepherd.
 
-## Configuration Example
-Here is a simple test configuration. You define your configuration structure as a POJO (Plain Old Java Object) extending `ConfigurablePojo<SelfType>`. Annotations guide how it's persisted.
+## Quick Start
 
-If a YAML configuration file exists, values are loaded from it. Otherwise, the default values defined in your POJO are used, and a new configuration file is generated on the first load.
+Define your configuration as a POJO extending `ConfigurablePojo<SelfType>`:
 
 ```java
-// Class-level comment becomes the file header
-@Comment({
-    "This is a JShepherd Test Configuration File.",
-    "All settings for the test application are here."
-})
-public class TestConfig extends ConfigurablePojo<TestConfig> { // Note the self-referential generic
+@Comment("My Application Configuration")
+public class AppConfig extends ConfigurablePojo<AppConfig> {
 
-    @CommentSection({
-        "Basic Settings",
-        "Fundamental string and integer values."
-    })
-    @Key("test.string.value")
-    @Comment("A sample string configuration value.")
-    private String testString = "defaultValue";
+    @Key("app-name")
+    @Comment("The application name")
+    private String appName = "MyApp";
 
-    @Key("test.integer.value")
-    @Comment("A sample integer configuration value.")
-    private int testInt = 123;
+    @Key("server-port")
+    @Comment("Server port number")
+    private int serverPort = 8080;
 
-    @CommentSection("Numeric Precision Types")
-    @Key("test.double.value")
-    @Comment({"A sample double configuration value.", "Allows for multi-line comments!"})
-    private double testDouble = 123.456;
+    @Key("debug-mode")
+    @Comment("Enable debug logging")
+    private boolean debugMode = false;
 
-    @Key("test.long.value")
-    @Comment("A sample long configuration value.")
-    private long testLong = 1234567890L;
-
-    @Key("test.float.value")
-    @Comment("A sample float configuration value.")
-    private float testFloat = 123.456f;
-
-    @CommentSection("Collections and Other Types")
-    @Key("test.list.value")
-    @Comment("A sample list configuration.")
-    private List<String> testList = Arrays.asList("item1", "item2", "item3");
-
-    @Key("test.boolean.value")
-    @Comment("A sample boolean configuration value.")
-    private boolean testBoolean = true;
-
-    @Key("test.map.value")
-    @Comment("A sample map configuration.")
-    private Map<String, String> testMap;
-
-    // Default constructor is used by the default supplier
-    public TestConfig() {
-        // Initialize defaults, especially for complex types or those not inline
-        testMap = new LinkedHashMap<>();
-        testMap.put("mapKey1", "mapValue1");
-        testMap.put("mapKey2", "mapValue2");
+    // Constructor and getters/setters...
+    public AppConfig() {}
+    
+    @PostInject 
+    private void validateConfigValues() {
+        if(serverPort < 0)
+            throw new IllegalArgumentException("Port cannot be negative.");
     }
-
-    // Standard Getters and Setters
-    // ...
+    
+    public String getAppName() { return appName; }
+    public void setAppName(String appName) { this.appName = appName; }
+    // ... other getters/setters
 }
 ```
 
-## Usage
-You load and interact with your configuration POJO using the `ConfigurationLoader`. The loaded object itself acts as the "shepherd" of its configuration state.
+Load and use your configuration:
 
 ```java
 public class App {
     public static void main(String[] args) {
-        Path configFile = Paths.get("test-application-config.yaml");
-
-        // Ensure parent directory exists (optional, good practice)
-        try {
-            if (configFile.getParent() != null) {
-                Files.createDirectories(configFile.getParent());
-            }
-        } catch (IOException e) {
-            System.err.println("Could not create config directory: " + e.getMessage());
-        }
-
-        // Load the configuration.
-        // This will read the file, or create it with defaults if it doesn't exist.
-        // The 'true' flag enables saving with comments from annotations.
-        TestConfig config = ConfigurationLoader.load(
-            configFile,
-            TestConfig.class,
-            TestConfig::new, // Supplier for default instance
-            true             // Use detailed, comment-driven save
-        );
-
-        System.out.println("Initial String Value: " + config.getTestString());
-        System.out.println("Initial Port: " + config.getTestInt()); // Assuming testInt was a port for example
-
-        // Modify configuration values
-        config.setTestString("A new value set at runtime!");
-        config.setTestInt(config.getTestInt() + 100); // Increment int value
-        config.getTestList().add("newItemFromApp");   // Modify a list
-
-        // Save the changes back to the YAML file
+        // File extension determines format automatically
+        Path configFile = Paths.get("config.yaml");  // or .json, .toml, .properties
+        
+        AppConfig config = ConfigurationLoader.load(configFile, AppConfig::new);
+        
+        System.out.println("App: " + config.getAppName());
+        System.out.println("Port: " + config.getServerPort());
+        
+        // Modify and save
+        config.setServerPort(9090);
         config.save();
-        System.out.println("Configuration saved.");
-
-        // If the file is modified externally, you can reload it
-        // config.reload();
-        // System.out.println("String value after potential reload: " + config.getTestString());
+        
+        // Reload from file
+        config.reload();
     }
 }
 ```
 
-This will result in a `test-application-config.yaml` file (if useComplexSaveWithComments was true):
+## Supported Formats
 
-```yaml
-# This is a JShepherd Test Configuration File.
-# All settings for the test application are here.
+| Format | Extensions | Comments Support | Documentation |
+|--------|------------|------------------|---------------|
+| **YAML** | `.yaml`, `.yml` | ✅ Inline comments | Native support |
+| **JSON** | `.json` | ❌ No native support | Separate `.md` file |
+| **TOML** | `.toml` | ✅ Inline comments | Native support |
+| **Properties** | `.properties` | ✅ Inline comments | Native support |
 
-# Basic Settings
-# Fundamental string and integer values.
-# A sample string configuration value.
-test.string.value: A new value set at runtime!
+### JSON Documentation Files
 
-# A sample integer configuration value.
-test.integer.value: 223
+When using JSON format with comments enabled, JShepherd automatically creates a companion documentation file:
 
-# Numeric Precision Types
-# A sample double configuration value.
-# Allows for multi-line comments!
-test.double.value: 123.456
-
-# A sample long configuration value.
-test.long.value: 1234567890
-
-# A sample float configuration value.
-test.float.value: 123.456
-
-# Collections and Other Types
-# A sample list configuration.
-test.list.value:
-  - item1
-  - item2
-  - item3
-  - newItemFromApp
-
-# A sample boolean configuration value.
-test.boolean.value: true
-
-# A sample map configuration.
-test.map.value:
-  mapKey1: mapValue1
-  mapKey2: mapValue2
+```java
+// config.json + config-documentation.md will be created
+AppConfig config = ConfigurationLoader.load(
+    Paths.get("config.json"), 
+    AppConfig::new, 
+    true  // Enable documentation generation
+);
 ```
 
-(Note: The exact formatting of the YAML, especially for collections and comments, is determined by the `saveWithAnnotationDrivenComments` logic and SnakeYAML's DumperOptions. The example above reflects a typical block style with comments.)
+## Key Features
 
-## Key Features Summary
-* **Define configuration easily:** Extend `ConfigurablePojo` and use annotations.
-* **Load Transparently:** `ConfigurationLoader.load()` handles file creation, default values, and parsing.
-* **Interact Directly:** Use your POJO instance for all get, set, save, and reload operations.
-* **Annotation-Driven Output:** `@Key`, `@Comment`, and `@CommentSection` control the YAML structure and documentation when `useComplexSaveWithComments` is enabled.
+* **🎯 Automatic Format Detection**: File extension determines the persistence format
+* **📝 Annotation-Driven**: Use `@Key`, `@Comment`, and `@CommentSection` for structure and documentation
+* **🔄 Live Reload**: Call `config.reload()` to update from external file changes
+* **💾 Simple Persistence**: Call `config.save()` to write changes back to file
+* **📚 Documentation Generation**: Automatic documentation files for formats without native comment support
+* **🔧 Type Safety**: Full compile-time type checking with self-referential generics
+* **⚡ Zero Configuration**: Works out of the box with sensible defaults
 
-For more details on specific annotations or advanced usage, please refer to the library's documentation or source code.
+## Annotations
 
-## Advanced Topics / Design Insights
+| Annotation | Purpose | Example |
+|------------|---------|---------|
+| `@Key("custom-name")` | Custom field name in config file | Maps `serverPort` → `server-port` |
+| `@Comment("Description")` | Field documentation | Adds comments above the field |
+| `@CommentSection("Section")` | Group related fields | Creates section headers |
+| `@PostInject` | Post-load initialization | Method called after config loading |
 
-For a highly detailed technical documentation covering the design decisions, architecture, and development evolution of JShepherd v3.0 (written in German), please see:
-[Detailed Technical Documentation (German)](docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
+## Example Output
 
-*AI tools were used to assist in the development and refactoring of this library.*
+**YAML** (`config.yaml`):
+```yaml
+# My Application Configuration
+
+# The application name
+app-name: MyApp
+
+# Server port number  
+server-port: 9090
+
+# Enable debug logging
+debug-mode: false
+```
+
+**JSON** (`config.json` + `config-documentation.md`):
+```json
+{
+  "app-name" : "MyApp",
+  "server-port" : 9090,
+  "debug-mode" : false
+}
+```
+
+For detailed technical documentation, see: [Technical Documentation (German)](docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
+
+*AI tools were used to assist in the development of this library.*

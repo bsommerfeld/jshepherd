@@ -1,5 +1,9 @@
 package de.bsommerfeld.jshepherd.core;
 
+import de.bsommerfeld.jshepherd.annotation.PostInject;
+
+import java.util.Arrays;
+
 /**
  * Abstract base class for configuration POJOs that can be saved and reloaded. Uses a self-referential generic type
  * 'SELF' to ensure type safety with the PersistenceDelegate.
@@ -15,6 +19,19 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
     final void _setPersistenceDelegate(PersistenceDelegate<?> delegate) {
         // This cast is now safe because ConfigurationLoader will pass a PersistenceDelegate<SELF>
         this.persistenceDelegate = (PersistenceDelegate<SELF>) delegate;
+    }
+
+    final void _invokePostInjectMethods() {
+        Arrays.stream(getClass().getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(PostInject.class))
+                .forEach(method -> {
+                    try {
+                        method.setAccessible(true);
+                        method.invoke(this);
+                    } catch (Exception e) {
+                        throw new ConfigurationException("Failed to invoke @PostInject method: " + method.getName(), e);
+                    }
+                });
     }
 
     /**
@@ -38,5 +55,6 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
             throw new IllegalStateException("Configuration POJO not properly initialized. Cannot reload.");
         }
         persistenceDelegate.reload((SELF) this);
+        _invokePostInjectMethods();
     }
 }

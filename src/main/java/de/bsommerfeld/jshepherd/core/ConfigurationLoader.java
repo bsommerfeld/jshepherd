@@ -1,10 +1,11 @@
 package de.bsommerfeld.jshepherd.core;
 
-import de.bsommerfeld.jshepherd.annotation.PostInject;
+import de.bsommerfeld.jshepherd.core.json.JsonPersistenceDelegateFactory;
+import de.bsommerfeld.jshepherd.core.properties.PropertiesPersistenceDelegateFactory;
+import de.bsommerfeld.jshepherd.core.toml.TomlPersistenceDelegateFactory;
 import de.bsommerfeld.jshepherd.core.yaml.YamlPersistenceDelegateFactory;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.function.Supplier;
 
 public class ConfigurationLoader {
@@ -15,7 +16,6 @@ public class ConfigurationLoader {
      * reload() capabilities.
      *
      * @param filePath                   Path to the configuration file.
-     * @param pojoClass                  The class of the configuration POJO, must extend {@link ConfigurablePojo}.
      * @param defaultPojoSupplier        A supplier for creating a default instance of the POJO (e.g.,
      *                                   {@code MyConfig::new}).
      * @param useComplexSaveWithComments If true, attempts to write comments from annotations during save. If false, a
@@ -28,13 +28,12 @@ public class ConfigurationLoader {
      */
     public static <T extends ConfigurablePojo<T>> T load(
             Path filePath,
-            Class<T> pojoClass,
             Supplier<T> defaultPojoSupplier,
             boolean useComplexSaveWithComments) {
 
-        PersistenceDelegate<T> delegate = YamlPersistenceDelegateFactory.create(
-                filePath, pojoClass, useComplexSaveWithComments
-        );
+        // Determine the delegate by the file extension
+        // Will throw an exception if the extension is not supported
+        PersistenceDelegate<T> delegate = determinePersistenceDelegate(filePath, useComplexSaveWithComments);
 
         T pojoInstance = delegate.loadInitial(defaultPojoSupplier);
 
@@ -44,7 +43,7 @@ public class ConfigurationLoader {
         pojoInstance._setPersistenceDelegate(delegate);
 
         // Invoke all with @PostInject annotated methods
-        invokePostInjectMethods(pojoInstance);
+        pojoInstance._invokePostInjectMethods();
 
         return pojoInstance;
     }
@@ -52,24 +51,46 @@ public class ConfigurationLoader {
     /**
      * Loads a configuration POJO using a simple save strategy (no complex comment processing).
      *
-     * @see #load(Path, Class, Supplier, boolean)
+     * @see #load(Path, Supplier, boolean)
      */
     public static <T extends ConfigurablePojo<T>> T load(
-            Path filePath, Class<T> pojoClass, Supplier<T> defaultPojoSupplier) {
-        return load(filePath, pojoClass, defaultPojoSupplier, true); // Default to complex save
+            Path filePath, Supplier<T> defaultPojoSupplier) {
+        return load(filePath, defaultPojoSupplier, true); // Default to complex save
     }
 
-    private static void invokePostInjectMethods(Object instance) {
-        Arrays.stream(instance.getClass().getDeclaredMethods())
-                .filter(method -> method.isAnnotationPresent(PostInject.class))
-                .forEach(method -> {
-                    try {
-                        method.setAccessible(true);
-                        method.invoke(instance);
-                    } catch (Exception e) {
-                        throw new ConfigurationException("Failed to invoke @PostInject method: " + method.getName(), e);
-                    }
-                });
+  /**
+   * Determines the appropriate persistence delegate for managing the persistence of configuration
+   * data associated with the specified file path.
+   *
+   * @param filePath the path to the configuration file for which the persistence delegate should be
+   *     determined
+   */
+  private static <T extends ConfigurablePojo<T>>
+      PersistenceDelegate<T> determinePersistenceDelegate(
+          Path filePath, boolean useComplexSaveWithComments) {
+        String fileName = filePath.getFileName().toString();
+        String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
+
+        PersistenceDelegate<T> delegate;
+        switch (fileExtension) {
+            case "json":
+                delegate = JsonPersistenceDelegateFactory.create(filePath, useComplexSaveWithComments);
+                break;
+            case "toml":
+                delegate = TomlPersistenceDelegateFactory.create(filePath, useComplexSaveWithComments);
+                break;
+            case "yaml":
+            case "yml":
+                delegate = YamlPersistenceDelegateFactory.create(filePath, useComplexSaveWithComments);
+                break;
+            case "properties":
+                delegate = PropertiesPersistenceDelegateFactory.create(filePath, useComplexSaveWithComments);
+                break;
+            default:
+                throw new ConfigurationException("Unsupported file extension: " + fileExtension);
+        }
+
+        return delegate;
     }
 
 }
