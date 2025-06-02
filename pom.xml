@@ -9,8 +9,8 @@
     <version>3.2.0</version>
 
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -43,7 +43,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -56,6 +56,15 @@
                                     <pattern>com.yaml</pattern>
                                     <shadedPattern>de.bsommerfeld.jshepherd.yaml</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.tomlj</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.tomlj</shadedPattern>
+                                </relocation>
+
                             </relocations>
                         </configuration>
                     </execution>

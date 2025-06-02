@@ -1,7 +1,5 @@
 package de.bsommerfeld.jshepherd.core;
 
-import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
 
