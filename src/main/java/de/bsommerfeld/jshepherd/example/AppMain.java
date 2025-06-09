@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class AppMain {
     public static void main(String[] args) {
-        Path configFile = Paths.get("test-config-complex.toml");
+        Path configFile = Paths.get("test-config-complex.yaml");
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("jShepherd Configuration Manager");
