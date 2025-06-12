@@ -12,38 +12,4 @@
     <artifactId>core</artifactId>
     <version>${revision}</version>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <relocations>
-                                <relocation>
-                                    <pattern>com.yaml</pattern>
-                                    <shadedPattern>de.bsommerfeld.jshepherd.yaml</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>com.fasterxml.jackson</pattern>
-                                    <shadedPattern>de.bsommerfeld.jshepherd.jackson</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.tomlj</pattern>
-                                    <shadedPattern>de.bsommerfeld.jshepherd.tomlj</shadedPattern>
-                                </relocation>
-                            </relocations>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
 </project>
