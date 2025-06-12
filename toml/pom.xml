@@ -13,6 +13,10 @@
     <artifactId>toml</artifactId>
     <version>${revision}</version>
 
+    <properties>
+        <shade.toml>true</shade.toml>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.tomlj</groupId>
@@ -54,34 +58,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <relocations>
-                                <relocation>
-                                    <pattern>org.tomlj</pattern>
-                                    <shadedPattern>de.bsommerfeld.jshepherd.tomlj</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>com.google.auto.service</pattern>
-                                    <shadedPattern>de.bsommerfeld.jshepherd.autoservice</shadedPattern>
-                                </relocation>
-                            </relocations>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>
