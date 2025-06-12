@@ -1,6 +1,7 @@
 # JShepherd
 
-JShepherd is an annotation based automatic configuration management library for Java that supports multiple formats (YAML, JSON, TOML, Properties) with automatic format detection based on file extensions.
+JShepherd is an annotation based automatic configuration management library for Java that supports multiple formats (
+YAML, JSON, TOML, Properties) with automatic format detection based on file extensions.
 
 ## Installation
 
@@ -9,6 +10,7 @@ JShepherd is now modular. You need to include the core module and any format-spe
 ### Maven
 
 ```xml
+
 <repositories>
     <repository>
         <id>jitpack.io</id>
@@ -16,33 +18,33 @@ JShepherd is now modular. You need to include the core module and any format-spe
     </repository>
 </repositories>
 
-<!-- Core module (required) -->
+        <!-- Core module (required) -->
 <dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>core</artifactId>
-    <version>VERSION</version> 
+<groupId>com.github.bsommerfeld.jshepherd</groupId>
+<artifactId>core</artifactId>
+<version>VERSION</version>
 </dependency>
 
-<!-- Format-specific modules (include only what you need) -->
+        <!-- Format-specific modules (include only what you need) -->
 <dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>json</artifactId>
-    <version>VERSION</version> 
+<groupId>com.github.bsommerfeld.jshepherd</groupId>
+<artifactId>json</artifactId>
+<version>VERSION</version>
 </dependency>
 <dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>yaml</artifactId>
-    <version>VERSION</version> 
+<groupId>com.github.bsommerfeld.jshepherd</groupId>
+<artifactId>yaml</artifactId>
+<version>VERSION</version>
 </dependency>
 <dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>toml</artifactId>
-    <version>VERSION</version> 
+<groupId>com.github.bsommerfeld.jshepherd</groupId>
+<artifactId>toml</artifactId>
+<version>VERSION</version>
 </dependency>
 <dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>properties</artifactId>
-    <version>VERSION</version> 
+<groupId>com.github.bsommerfeld.jshepherd</groupId>
+<artifactId>properties</artifactId>
+<version>VERSION</version>
 </dependency>
 ```
 
@@ -76,6 +78,7 @@ Replace `VERSION` with the latest version of JShepherd (current: 3.2.0).
 Define your configuration as a POJO extending `ConfigurablePojo<SelfType>`:
 
 ```java
+
 @Comment("My Application Configuration")
 public class AppConfig extends ConfigurablePojo<AppConfig> {
 
@@ -92,16 +95,22 @@ public class AppConfig extends ConfigurablePojo<AppConfig> {
     private boolean debugMode = false;
 
     // Constructor and getters/setters...
-    public AppConfig() {}
+    public AppConfig() {
+    }
 
-    @PostInject 
+    @PostInject
     private void validateConfigValues() {
-        if(serverPort < 0)
+        if (serverPort < 0)
             throw new IllegalArgumentException("Port cannot be negative.");
     }
 
-    public String getAppName() { return appName; }
-    public void setAppName(String appName) { this.appName = appName; }
+    public String getAppName() {
+        return appName;
+    }
+
+    public void setAppName(String appName) {
+        this.appName = appName;
+    }
     // ... other getters/setters
 }
 ```
@@ -131,12 +140,12 @@ public class App {
 
 ## Supported Formats
 
-| Format | Extensions | Comments Support | Documentation |
-|--------|------------|------------------|---------------|
-| **YAML** | `.yaml`, `.yml` | ✅ Inline comments | Native support |
-| **JSON** | `.json` | ❌ No native support | Separate `.md` file |
-| **TOML** | `.toml` | ✅ Inline comments | Native support |
-| **Properties** | `.properties` | ✅ Inline comments | Native support |
+| Format         | Extensions      | Comments Support    | Documentation       |
+|----------------|-----------------|---------------------|---------------------|
+| **YAML**       | `.yaml`, `.yml` | ✅ Inline comments   | Native support      |
+| **JSON**       | `.json`         | ❌ No native support | Separate `.md` file |
+| **TOML**       | `.toml`         | ✅ Inline comments   | Native support      |
+| **Properties** | `.properties`   | ✅ Inline comments   | Native support      |
 
 ### JSON Documentation Files
 
@@ -145,10 +154,10 @@ When using JSON format with comments enabled, JShepherd automatically creates a 
 ```java
 // config.json + config-documentation.md will be created
 AppConfig config = ConfigurationLoader.load(
-    Paths.get("config.json"), 
-    AppConfig::new, 
-    true  // Enable documentation generation
-);
+                Paths.get("config.json"),
+                AppConfig::new,
+                true  // Enable documentation generation
+        );
 ```
 
 ## Key Features
@@ -164,16 +173,17 @@ AppConfig config = ConfigurationLoader.load(
 
 ## Annotations
 
-| Annotation | Purpose | Example |
-|------------|---------|---------|
-| `@Key("custom-name")` | Custom field name in config file | Maps `serverPort` → `server-port` |
-| `@Comment("Description")` | Field documentation | Adds comments above the field |
-| `@CommentSection("Section")` | Group related fields | Creates section headers |
-| `@PostInject` | Post-load initialization | Method called after config loading |
+| Annotation                   | Purpose                          | Example                            |
+|------------------------------|----------------------------------|------------------------------------|
+| `@Key("custom-name")`        | Custom field name in config file | Maps `serverPort` → `server-port`  |
+| `@Comment("Description")`    | Field documentation              | Adds comments above the field      |
+| `@CommentSection("Section")` | Group related fields             | Creates section headers            |
+| `@PostInject`                | Post-load initialization         | Method called after config loading |
 
 ## Example Output
 
 **YAML** (`config.yaml`):
+
 ```yaml
 # My Application Configuration
 
@@ -188,14 +198,15 @@ debug-mode: false
 ```
 
 **JSON** (`config.json` + `config-documentation.md`):
+
 ```json
 {
-  "app-name" : "MyApp",
-  "server-port" : 9090,
-  "debug-mode" : false
+  "app-name": "MyApp",
+  "server-port": 9090,
+  "debug-mode": false
 }
 ```
 
-For detailed technical documentation, see: [Technical Documentation (German)](docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
+For detailed technical documentation, see: [Technical Documentation (German)](.docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
 
 *AI tools were used to assist in the development of this library.*
