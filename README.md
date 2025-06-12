@@ -18,34 +18,36 @@ JShepherd is now modular. You need to include the core module and any format-spe
     </repository>
 </repositories>
 
-        <!-- Core module (required) -->
+<dependencies>
+<!-- Core module (required) -->
 <dependency>
-<groupId>com.github.bsommerfeld.jshepherd</groupId>
-<artifactId>core</artifactId>
-<version>VERSION</version>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>core</artifactId>
+    <version>VERSION</version>
 </dependency>
 
-        <!-- Format-specific modules (include only what you need) -->
+<!-- Format-specific modules (include only what you need) -->
 <dependency>
-<groupId>com.github.bsommerfeld.jshepherd</groupId>
-<artifactId>json</artifactId>
-<version>VERSION</version>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>json</artifactId>
+    <version>VERSION</version>
 </dependency>
 <dependency>
-<groupId>com.github.bsommerfeld.jshepherd</groupId>
-<artifactId>yaml</artifactId>
-<version>VERSION</version>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>yaml</artifactId>
+    <version>VERSION</version>
 </dependency>
 <dependency>
-<groupId>com.github.bsommerfeld.jshepherd</groupId>
-<artifactId>toml</artifactId>
-<version>VERSION</version>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>toml</artifactId>
+    <version>VERSION</version>
 </dependency>
 <dependency>
-<groupId>com.github.bsommerfeld.jshepherd</groupId>
-<artifactId>properties</artifactId>
-<version>VERSION</version>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>properties</artifactId>
+    <version>VERSION</version>
 </dependency>
+</dependencies>
 ```
 
 ### Gradle
