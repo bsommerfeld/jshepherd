@@ -1,4 +1,4 @@
-package de.bsommerfeld.jshepherd.core.json;
+package de.bsommerfeld.jshepherd.json;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.CommentSection;
