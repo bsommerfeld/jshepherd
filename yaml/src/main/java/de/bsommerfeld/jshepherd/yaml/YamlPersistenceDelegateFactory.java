@@ -16,7 +16,7 @@ public class YamlPersistenceDelegateFactory implements PersistenceDelegateFactor
 
   @Override
   public String[] getSupportedExtensions() {
-    return new String[] {"json"};
+    return new String[] {"yml", "yaml"};
   }
 
   @Override
