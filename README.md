@@ -4,6 +4,8 @@ JShepherd is an annotation based automatic configuration management library for 
 
 ## Installation
 
+JShepherd is now modular. You need to include the core module and any format-specific modules you want to use.
+
 ### Maven
 
 ```xml
@@ -14,9 +16,32 @@ JShepherd is an annotation based automatic configuration management library for 
     </repository>
 </repositories>
 
+<!-- Core module (required) -->
 <dependency>
-    <groupId>com.github.bsommerfeld</groupId>
-    <artifactId>jshepherd</artifactId>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>core</artifactId>
+    <version>VERSION</version> 
+</dependency>
+
+<!-- Format-specific modules (include only what you need) -->
+<dependency>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>json</artifactId>
+    <version>VERSION</version> 
+</dependency>
+<dependency>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>yaml</artifactId>
+    <version>VERSION</version> 
+</dependency>
+<dependency>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>toml</artifactId>
+    <version>VERSION</version> 
+</dependency>
+<dependency>
+    <groupId>com.github.bsommerfeld.jshepherd</groupId>
+    <artifactId>properties</artifactId>
     <version>VERSION</version> 
 </dependency>
 ```
@@ -33,11 +58,18 @@ dependencyResolutionManagement {
 }
 
 dependencies {
-    implementation 'com.github.bsommerfeld:jshepherd:VERSION'
+    // Core module (required)
+    implementation 'com.github.bsommerfeld.jshepherd:core:VERSION'
+
+    // Format-specific modules (include only what you need)
+    implementation 'com.github.bsommerfeld.jshepherd:json:VERSION'
+    implementation 'com.github.bsommerfeld.jshepherd:yaml:VERSION'
+    implementation 'com.github.bsommerfeld.jshepherd:toml:VERSION'
+    implementation 'com.github.bsommerfeld.jshepherd:properties:VERSION'
 }
 ```
 
-Replace `VERSION` with the latest version of JShepherd.
+Replace `VERSION` with the latest version of JShepherd (current: 3.2.0).
 
 ## Quick Start
 
@@ -61,13 +93,13 @@ public class AppConfig extends ConfigurablePojo<AppConfig> {
 
     // Constructor and getters/setters...
     public AppConfig() {}
-    
+
     @PostInject 
     private void validateConfigValues() {
         if(serverPort < 0)
             throw new IllegalArgumentException("Port cannot be negative.");
     }
-    
+
     public String getAppName() { return appName; }
     public void setAppName(String appName) { this.appName = appName; }
     // ... other getters/setters
@@ -81,16 +113,16 @@ public class App {
     public static void main(String[] args) {
         // File extension determines format automatically
         Path configFile = Paths.get("config.yaml");  // or .json, .toml, .properties
-        
+
         AppConfig config = ConfigurationLoader.load(configFile, AppConfig::new);
-        
+
         System.out.println("App: " + config.getAppName());
         System.out.println("Port: " + config.getServerPort());
-        
+
         // Modify and save
         config.setServerPort(9090);
         config.save();
-        
+
         // Reload from file
         config.reload();
     }
@@ -128,6 +160,7 @@ AppConfig config = ConfigurationLoader.load(
 * **📚 Documentation Generation**: Automatic documentation files for formats without native comment support
 * **🔧 Type Safety**: Full compile-time type checking with self-referential generics
 * **⚡ Zero Configuration**: Works out of the box with sensible defaults
+* **🧩 Modular Structure**: Include only the format modules you need
 
 ## Annotations
 
