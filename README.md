@@ -73,7 +73,7 @@ dependencies {
 }
 ```
 
-Replace `VERSION` with the latest version of JShepherd (current: 3.2.0).
+Replace `VERSION` with the latest version of JShepherd.
 
 ## Quick Start
 
