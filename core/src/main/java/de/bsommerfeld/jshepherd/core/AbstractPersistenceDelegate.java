@@ -2,7 +2,6 @@ package de.bsommerfeld.jshepherd.core;
 
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -10,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -23,28 +20,15 @@ import java.util.function.Supplier;
  */
 public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>> implements PersistenceDelegate<T> {
 
-    protected final Path filePath;
-    protected final boolean useComplexSaveWithComments;
-    protected String lastCommentSectionHash = null;
-
     private static final Map<Class<?>, Function<Number, Object>> NUMERIC_CONVERTERS;
 
     static {
-        Map<Class<?>, Function<Number, Object>> converters = new HashMap<>();
-        converters.put(int.class, Number::intValue);
-        converters.put(Integer.class, Number::intValue);
-        converters.put(float.class, Number::floatValue);
-        converters.put(Float.class, Number::floatValue);
-        converters.put(double.class, Number::doubleValue);
-        converters.put(Double.class, Number::doubleValue);
-        converters.put(long.class, Number::longValue);
-        converters.put(Long.class, Number::longValue);
-        converters.put(short.class, Number::shortValue);
-        converters.put(Short.class, Number::shortValue);
-        converters.put(byte.class, Number::byteValue);
-        converters.put(Byte.class, Number::byteValue);
-        NUMERIC_CONVERTERS = Collections.unmodifiableMap(converters);
+        NUMERIC_CONVERTERS = Map.ofEntries(Map.entry(int.class, Number::intValue), Map.entry(Integer.class, Number::intValue), Map.entry(float.class, Number::floatValue), Map.entry(Float.class, Number::floatValue), Map.entry(double.class, Number::doubleValue), Map.entry(Double.class, Number::doubleValue), Map.entry(long.class, Number::longValue), Map.entry(Long.class, Number::longValue), Map.entry(short.class, Number::shortValue), Map.entry(Short.class, Number::shortValue), Map.entry(byte.class, Number::byteValue), Map.entry(Byte.class, Number::byteValue));
     }
+
+    protected final Path filePath;
+    protected final boolean useComplexSaveWithComments;
+    protected String lastCommentSectionHash = null;
 
     protected AbstractPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         this.filePath = filePath;

@@ -3,7 +3,6 @@ package de.bsommerfeld.jshepherd.utils;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class ClassUtils {
@@ -25,7 +24,6 @@ public class ClassUtils {
             fields.addAll(Arrays.asList(currentClass.getDeclaredFields()));
             currentClass = currentClass.getSuperclass();
         }
-        // Removed reverse operation to maintain declaration order
         return fields;
     }
 }
