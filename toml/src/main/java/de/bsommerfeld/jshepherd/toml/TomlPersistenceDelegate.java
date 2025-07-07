@@ -35,7 +35,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
   protected boolean tryLoadFromFile(T instance) throws Exception {
     TomlParseResult tomlResult = Toml.parse(filePath);
 
-    if (tomlResult != null && !tomlResult.isEmpty()) {
+    if (!tomlResult.isEmpty()) {
       applyDataToInstance(instance, new TomlDataExtractor(tomlResult));
       return true;
     }
@@ -178,7 +178,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
           }
 
           Comment fieldComment = field.getAnnotation(Comment.class);
-          if (fieldComment != null && fieldComment.value().length > 0) {
+          if (fieldComment != null) {
             for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
           }
 
@@ -233,7 +233,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
               keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
 
           Comment fieldComment = field.getAnnotation(Comment.class);
-          if (fieldComment != null && fieldComment.value().length > 0) {
+          if (fieldComment != null) {
             for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
           }
 
@@ -352,8 +352,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
           }
           return javaList;
         }
-      } else if (rawValue instanceof TomlTable) {
-        TomlTable tomlTable = (TomlTable) rawValue;
+      } else if (rawValue instanceof TomlTable tomlTable) {
         if (Map.class.isAssignableFrom(targetType)) {
           Map<String, Object> javaMap = new LinkedHashMap<>();
           for (String tableKey : tomlTable.keySet()) {

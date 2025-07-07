@@ -141,7 +141,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
         }
 
         Comment fieldComment = field.getAnnotation(Comment.class);
-        if (fieldComment != null && fieldComment.value().length > 0) {
+        if (fieldComment != null) {
           for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
         }
 
@@ -205,24 +205,17 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
   }
 
   // DataExtractor implementation for YAML
-  private static class YamlDataExtractor implements DataExtractor {
-    private final Object yamlData;
-
-    YamlDataExtractor(Object yamlData) {
-      this.yamlData = yamlData;
-    }
+  private record YamlDataExtractor(Object yamlData) implements DataExtractor {
 
     @Override
     public boolean hasValue(String key) {
-      if (!(yamlData instanceof Map)) return false;
-      Map<?, ?> yamlMap = (Map<?, ?>) yamlData;
+      if (!(yamlData instanceof Map<?, ?> yamlMap)) return false;
       return yamlMap.containsKey(key);
     }
 
     @Override
     public Object getValue(String key, Class<?> targetType) {
-      if (!(yamlData instanceof Map)) return null;
-      Map<?, ?> yamlMap = (Map<?, ?>) yamlData;
+      if (!(yamlData instanceof Map<?, ?> yamlMap)) return null;
       return yamlMap.get(key);
     }
   }

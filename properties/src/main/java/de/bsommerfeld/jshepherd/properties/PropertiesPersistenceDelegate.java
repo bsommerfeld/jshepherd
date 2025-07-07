@@ -113,7 +113,7 @@ class PropertiesPersistenceDelegate<T extends ConfigurablePojo<T>>
         }
 
         Comment fieldComment = field.getAnnotation(Comment.class);
-        if (fieldComment != null && fieldComment.value().length > 0) {
+        if (fieldComment != null) {
           for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
         }
 
@@ -193,8 +193,7 @@ class PropertiesPersistenceDelegate<T extends ConfigurablePojo<T>>
       return ((LocalDateTime) value).format(DATETIME_FORMATTER);
     } else if (value instanceof LocalTime) {
       return ((LocalTime) value).format(TIME_FORMATTER);
-    } else if (value instanceof List) {
-      List<?> list = (List<?>) value;
+    } else if (value instanceof List<?> list) {
       if (list.isEmpty()) {
         return "[]";
       }
@@ -205,8 +204,7 @@ class PropertiesPersistenceDelegate<T extends ConfigurablePojo<T>>
       }
       sb.append("]");
       return sb.toString();
-    } else if (value instanceof Map) {
-      Map<?, ?> map = (Map<?, ?>) value;
+    } else if (value instanceof Map<?, ?> map) {
       if (map.isEmpty()) {
         return "{}";
       }
@@ -242,12 +240,7 @@ class PropertiesPersistenceDelegate<T extends ConfigurablePojo<T>>
   }
 
   // DataExtractor implementation for Properties
-  private class PropertiesDataExtractor implements DataExtractor {
-    private final Properties properties;
-
-    PropertiesDataExtractor(Properties properties) {
-      this.properties = properties;
-    }
+  private record PropertiesDataExtractor(Properties properties) implements DataExtractor {
 
     @Override
     public boolean hasValue(String key) {
