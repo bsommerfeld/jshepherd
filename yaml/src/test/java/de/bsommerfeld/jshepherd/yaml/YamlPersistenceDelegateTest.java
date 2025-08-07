@@ -162,33 +162,93 @@ class YamlPersistenceDelegateTest {
     @Test
     @DisplayName("Save and load collections - Should handle lists and maps correctly")
     void saveAndLoad_shouldHandleCollectionsCorrectly() {
-        // This test is disabled for YAML implementation due to issues with global tags
-        // The YAML implementation has issues with global tags that would require changes to the implementation
-        System.out.println("[DEBUG_LOG] Skipping collections test for YAML implementation");
+        // Arrange
+        testConfig.stringList.add("item1");
+        testConfig.stringList.add("item2");
+        testConfig.intList.add(1);
+        testConfig.intList.add(2);
+        testConfig.stringMap.put("key1", "value1");
+        testConfig.stringMap.put("key2", "value2");
+        
+        Map<String, Object> nestedMap = new HashMap<>();
+        nestedMap.put("nestedKey", "nestedValue");
+        nestedMap.put("nestedInt", 42);
+        testConfig.nestedMap.put("nested", nestedMap);
+        
+        // Act - Save and reload
+        delegate.save(testConfig);
+        TestConfig reloaded = new TestConfig();
+        delegate.reload(reloaded);
+        
+        // Assert - Collections should be preserved
+        assertEquals(2, reloaded.stringList.size(), "String list should have 2 items");
+        assertTrue(reloaded.stringList.contains("item1"), "String list should contain item1");
+        assertTrue(reloaded.stringList.contains("item2"), "String list should contain item2");
+        
+        assertEquals(2, reloaded.intList.size(), "Int list should have 2 items");
+        assertTrue(reloaded.intList.contains(1), "Int list should contain 1");
+        assertTrue(reloaded.intList.contains(2), "Int list should contain 2");
+        
+        assertEquals(2, reloaded.stringMap.size(), "String map should have 2 entries");
+        assertEquals("value1", reloaded.stringMap.get("key1"), "Map should contain key1=value1");
+        assertEquals("value2", reloaded.stringMap.get("key2"), "Map should contain key2=value2");
+        
+        // Nested maps are more complex and might be handled differently by different implementations
+        // Just check that something was loaded
+        assertFalse(reloaded.nestedMap.isEmpty(), "Nested map should not be empty");
     }
 
     @Test
     @DisplayName("Special characters - Should handle special characters correctly")
     void saveAndLoad_shouldHandleSpecialCharactersCorrectly() {
-        // This test is disabled for YAML implementation due to issues with global tags
-        // The YAML implementation has issues with global tags that would require changes to the implementation
-        System.out.println("[DEBUG_LOG] Skipping special characters test for YAML implementation");
+        // Arrange - Set special characters
+        testConfig.specialChars = "Special chars: !@#$%^&*()_+{}|:<>?[];',./`~";
+        
+        // Act - Save and reload
+        delegate.save(testConfig);
+        TestConfig reloaded = new TestConfig();
+        delegate.reload(reloaded);
+        
+        // Assert - Special characters should be preserved
+        assertEquals(testConfig.specialChars, reloaded.specialChars, "Special characters should be preserved");
     }
 
     @Test
     @DisplayName("Empty and null values - Should handle empty and null values correctly")
     void saveAndLoad_shouldHandleEmptyAndNullValuesCorrectly() {
-        // This test is disabled for YAML implementation due to issues with global tags
-        // The YAML implementation has issues with global tags that would require changes to the implementation
-        System.out.println("[DEBUG_LOG] Skipping empty/null values test for YAML implementation");
+        // Arrange - Set empty and null values
+        testConfig.emptyString = "";
+        testConfig.nullString = null;
+        
+        // Act - Save and reload
+        delegate.save(testConfig);
+        TestConfig reloaded = new TestConfig();
+        reloaded.emptyString = "not empty"; // Set to non-empty to verify it gets overwritten
+        reloaded.nullString = "not null";   // Set to non-null to verify it gets overwritten
+        delegate.reload(reloaded);
+        
+        // Assert - Empty and null values should be preserved
+        assertEquals("", reloaded.emptyString, "Empty string should be preserved");
+        assertNull(reloaded.nullString, "Null value should be preserved");
     }
 
     @Test
     @DisplayName("Very long string - Should handle very long strings correctly")
     void saveAndLoad_shouldHandleVeryLongStringsCorrectly() {
-        // This test is disabled for YAML implementation due to issues with global tags
-        // The YAML implementation has issues with global tags that would require changes to the implementation
-        System.out.println("[DEBUG_LOG] Skipping very long string test for YAML implementation");
+        // Arrange - Create a very long string
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 1000; i++) {
+            sb.append("This is a very long string that should be handled correctly. ");
+        }
+        testConfig.veryLongString = sb.toString();
+        
+        // Act - Save and reload
+        delegate.save(testConfig);
+        TestConfig reloaded = new TestConfig();
+        delegate.reload(reloaded);
+        
+        // Assert - Very long string should be preserved
+        assertEquals(testConfig.veryLongString, reloaded.veryLongString, "Very long string should be preserved");
     }
 
     @Test

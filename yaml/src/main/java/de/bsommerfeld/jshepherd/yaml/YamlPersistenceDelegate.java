@@ -12,12 +12,16 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
+import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 
 /**
@@ -62,8 +66,11 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     mainDumperOptions.setExplicitStart(false);
     mainDumperOptions.setExplicitEnd(false);
 
+    // Create a representer that doesn't use global tags
     Representer representer = new Representer(mainDumperOptions);
     representer.getPropertyUtils().setSkipMissingProperties(true);
+    // Disable global tags by mapping the POJO class to a generic tag
+    representer.addClassTag(pojoClass, Tag.MAP);
 
     LoaderOptions loaderOptions = new LoaderOptions();
     this.yaml = new Yaml(new Constructor(pojoClass, loaderOptions), representer, mainDumperOptions);
@@ -77,7 +84,16 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     valueDumperOptions.setAllowUnicode(true);
     valueDumperOptions.setExplicitStart(false);
     valueDumperOptions.setExplicitEnd(false);
-    this.valueDumper = new Yaml(new Representer(valueDumperOptions), valueDumperOptions);
+    
+    // Create a representer for value dumper that doesn't use global tags
+    Representer valueDumperRepresenter = new Representer(valueDumperOptions);
+    // We don't know the exact types that will be dumped, so we can't add specific class tags
+    // But we can configure it to use generic tags for common collection types
+    valueDumperRepresenter.addClassTag(ArrayList.class, Tag.SEQ);
+    valueDumperRepresenter.addClassTag(HashMap.class, Tag.MAP);
+    valueDumperRepresenter.addClassTag(LinkedHashMap.class, Tag.MAP);
+    
+    this.valueDumper = new Yaml(valueDumperRepresenter, valueDumperOptions);
   }
 
   /**
@@ -93,11 +109,21 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     initializeYamlIfNeeded((Class<T>) instance.getClass());
 
     try (Reader reader = Files.newBufferedReader(filePath)) {
-      Yaml simpleYaml = new Yaml();
+      // Create a properly configured Yaml instance that doesn't use global tags
+      DumperOptions options = new DumperOptions();
+      Representer representer = new Representer(options);
+      
+      // Configure the representer to use generic tags for common types
+      representer.addClassTag(ArrayList.class, Tag.SEQ);
+      representer.addClassTag(HashMap.class, Tag.MAP);
+      representer.addClassTag(LinkedHashMap.class, Tag.MAP);
+      
+      Yaml simpleYaml = new Yaml(representer, options);
       Object yamlData = simpleYaml.load(reader);
 
       if (yamlData != null) {
-        applyDataToInstance(instance, new YamlDataExtractor(yamlData));
+        // Use our custom method to apply data including null values
+        applyYamlDataToInstance(instance, yamlData);
         return true;
       }
     } catch (IOException e) {
@@ -105,6 +131,54 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
       throw e;
     }
     return false;
+  }
+  
+  /**
+   * Custom implementation to apply YAML data to a POJO instance, properly handling null values.
+   * This is needed because the base class applyDataToInstance method doesn't set fields to null.
+   * 
+   * @param target The target POJO instance
+   * @param yamlData The YAML data to apply
+   */
+  private void applyYamlDataToInstance(T target, Object yamlData) {
+    if (!(yamlData instanceof Map<?, ?> yamlMap)) {
+      return;
+    }
+    
+    List<Field> fields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
+
+    for (Field field : fields) {
+      if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+        continue;
+      }
+
+      Key keyAnnotation = field.getAnnotation(Key.class);
+      if (keyAnnotation == null) continue;
+
+      String key = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+
+      if (yamlMap.containsKey(key)) {
+        try {
+          field.setAccessible(true);
+          Object value = yamlMap.get(key);
+
+          // Handle both null and non-null values
+          if (value != null) {
+            Object convertedValue = convertNumericIfNeeded(value, field.getType());
+            field.set(target, convertedValue);
+          } else {
+            // Explicitly set field to null for null values in YAML
+            field.set(target, null);
+          }
+        } catch (IllegalAccessException e) {
+          System.err.println(LOG_PREFIX + "WARNING: Could not set field '" + field.getName() + "' during data application: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+          System.err.println(LOG_PREFIX + "WARNING: Type conversion failed for field '" + field.getName() + "': " + e.getMessage());
+        } catch (Exception e) {
+          System.err.println(LOG_PREFIX + "WARNING: Error processing field '" + field.getName() + "': " + e.getMessage());
+        }
+      }
+    }
   }
 
   /**
@@ -279,6 +353,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     @Override
     public boolean hasValue(String key) {
       if (!(yamlData instanceof Map<?, ?> yamlMap)) return false;
+      // Consider a key present even if its value is null
       return yamlMap.containsKey(key);
     }
 
@@ -292,7 +367,12 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     @Override
     public Object getValue(String key, Class<?> targetType) {
       if (!(yamlData instanceof Map<?, ?> yamlMap)) return null;
-      return yamlMap.get(key);
+      // Explicitly handle null values - if the key exists but the value is null,
+      // we should return null to ensure null values are preserved
+      if (yamlMap.containsKey(key)) {
+        return yamlMap.get(key);
+      }
+      return null;
     }
   }
 }
