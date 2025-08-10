@@ -67,9 +67,9 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     mainDumperOptions.setExplicitEnd(false);
 
     // Create a representer that doesn't use global tags
-    Representer representer = new Representer(mainDumperOptions);
+    Representer representer = new AlwaysMapRepresenter(mainDumperOptions);
     representer.getPropertyUtils().setSkipMissingProperties(true);
-    // Disable global tags by mapping the POJO class to a generic tag
+    // Disable global tags by mapping the POJO class to a generic tag (redundant but safe)
     representer.addClassTag(pojoClass, Tag.MAP);
 
     LoaderOptions loaderOptions = new LoaderOptions();
@@ -86,7 +86,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     valueDumperOptions.setExplicitEnd(false);
     
     // Create a representer for value dumper that doesn't use global tags
-    Representer valueDumperRepresenter = new Representer(valueDumperOptions);
+    Representer valueDumperRepresenter = new AlwaysMapRepresenter(valueDumperOptions);
     // We don't know the exact types that will be dumped, so we can't add specific class tags
     // But we can configure it to use generic tags for common collection types
     valueDumperRepresenter.addClassTag(ArrayList.class, Tag.SEQ);
@@ -111,7 +111,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>>
     try (Reader reader = Files.newBufferedReader(filePath)) {
       // Create a properly configured Yaml instance that doesn't use global tags
       DumperOptions options = new DumperOptions();
-      Representer representer = new Representer(options);
+      Representer representer = new AlwaysMapRepresenter(options);
       
       // Configure the representer to use generic tags for common types
       representer.addClassTag(ArrayList.class, Tag.SEQ);

@@ -4,7 +4,6 @@ import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
-import de.bsommerfeld.jshepherd.core.ConfigurationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,14 +12,23 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class YamlPersistenceDelegateTest {
 
@@ -37,6 +45,44 @@ class YamlPersistenceDelegateTest {
         delegate = new YamlPersistenceDelegate<>(configPath, true);
         testConfig = new TestConfig();
     }
+
+    @Test
+    @DisplayName("No global tags (saveSimple) - Should not write SnakeYAML global type tags")
+    void saveSimple_shouldNotWriteGlobalTypeTags() throws IOException {
+        testConfig.boolValue = true;
+
+        // Act
+        delegate.saveSimple(testConfig, configPath);
+
+        // Assert
+        assertTrue(Files.exists(configPath), "Config file should be created");
+        String content = Files.readString(configPath);
+
+        assertFalse(content.startsWith("!!"), "YAML must not start with a global tag");
+        assertFalse(content.contains("\n!!"), "YAML must not contain global tags in any line");
+    }
+
+    @Test
+    @DisplayName("No global tags (saveWithComments) - Should not write SnakeYAML global type tags")
+    void saveWithComments_shouldNotWriteGlobalTypeTags() throws IOException {
+        // Arrange
+        testConfig.boolValue = false;
+
+        // Act
+        delegate.saveWithComments(testConfig, configPath);
+
+        // Assert
+        assertTrue(Files.exists(configPath), "Config file should be created");
+        String content = Files.readString(configPath);
+
+        assertFalse(content.startsWith("!!"), "YAML must not start with a global tag");
+        assertFalse(content.contains("\n!!"), "YAML must not contain global tags in any line");
+
+        // Sanity-Check
+        assertTrue(content.contains("bool-value:"), "YAML should contain the boolean key");
+        assertFalse(content.contains("!!"), "YAML must not contain any global tag for boolean value");
+    }
+
 
     @Test
     @DisplayName("Save simple - Should create a valid YAML file with basic types")
@@ -169,30 +215,30 @@ class YamlPersistenceDelegateTest {
         testConfig.intList.add(2);
         testConfig.stringMap.put("key1", "value1");
         testConfig.stringMap.put("key2", "value2");
-        
+
         Map<String, Object> nestedMap = new HashMap<>();
         nestedMap.put("nestedKey", "nestedValue");
         nestedMap.put("nestedInt", 42);
         testConfig.nestedMap.put("nested", nestedMap);
-        
+
         // Act - Save and reload
         delegate.save(testConfig);
         TestConfig reloaded = new TestConfig();
         delegate.reload(reloaded);
-        
+
         // Assert - Collections should be preserved
         assertEquals(2, reloaded.stringList.size(), "String list should have 2 items");
         assertTrue(reloaded.stringList.contains("item1"), "String list should contain item1");
         assertTrue(reloaded.stringList.contains("item2"), "String list should contain item2");
-        
+
         assertEquals(2, reloaded.intList.size(), "Int list should have 2 items");
         assertTrue(reloaded.intList.contains(1), "Int list should contain 1");
         assertTrue(reloaded.intList.contains(2), "Int list should contain 2");
-        
+
         assertEquals(2, reloaded.stringMap.size(), "String map should have 2 entries");
         assertEquals("value1", reloaded.stringMap.get("key1"), "Map should contain key1=value1");
         assertEquals("value2", reloaded.stringMap.get("key2"), "Map should contain key2=value2");
-        
+
         // Nested maps are more complex and might be handled differently by different implementations
         // Just check that something was loaded
         assertFalse(reloaded.nestedMap.isEmpty(), "Nested map should not be empty");
@@ -203,12 +249,12 @@ class YamlPersistenceDelegateTest {
     void saveAndLoad_shouldHandleSpecialCharactersCorrectly() {
         // Arrange - Set special characters
         testConfig.specialChars = "Special chars: !@#$%^&*()_+{}|:<>?[];',./`~";
-        
+
         // Act - Save and reload
         delegate.save(testConfig);
         TestConfig reloaded = new TestConfig();
         delegate.reload(reloaded);
-        
+
         // Assert - Special characters should be preserved
         assertEquals(testConfig.specialChars, reloaded.specialChars, "Special characters should be preserved");
     }
@@ -219,14 +265,14 @@ class YamlPersistenceDelegateTest {
         // Arrange - Set empty and null values
         testConfig.emptyString = "";
         testConfig.nullString = null;
-        
+
         // Act - Save and reload
         delegate.save(testConfig);
         TestConfig reloaded = new TestConfig();
         reloaded.emptyString = "not empty"; // Set to non-empty to verify it gets overwritten
         reloaded.nullString = "not null";   // Set to non-null to verify it gets overwritten
         delegate.reload(reloaded);
-        
+
         // Assert - Empty and null values should be preserved
         assertEquals("", reloaded.emptyString, "Empty string should be preserved");
         assertNull(reloaded.nullString, "Null value should be preserved");
@@ -241,12 +287,12 @@ class YamlPersistenceDelegateTest {
             sb.append("This is a very long string that should be handled correctly. ");
         }
         testConfig.veryLongString = sb.toString();
-        
+
         // Act - Save and reload
         delegate.save(testConfig);
         TestConfig reloaded = new TestConfig();
         delegate.reload(reloaded);
-        
+
         // Assert - Very long string should be preserved
         assertEquals(testConfig.veryLongString, reloaded.veryLongString, "Very long string should be preserved");
     }
@@ -304,7 +350,7 @@ class YamlPersistenceDelegateTest {
         }, "Should throw exception for non-existent file");
 
         // Verify exception is related to file not found
-        assertTrue(exception instanceof IOException, 
+        assertTrue(exception instanceof IOException,
                 "Exception should be an IOException");
     }
 
@@ -329,7 +375,7 @@ class YamlPersistenceDelegateTest {
 
                     // Create a unique path for this thread
                     Path threadPath = tempDir.resolve("thread-" + threadNum + ".yaml");
-                    YamlPersistenceDelegate<TestConfig> threadDelegate = 
+                    YamlPersistenceDelegate<TestConfig> threadDelegate =
                             new YamlPersistenceDelegate<>(threadPath, false);
 
                     // Save and load - catch any exceptions that might occur
