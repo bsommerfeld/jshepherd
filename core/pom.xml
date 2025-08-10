@@ -14,26 +14,6 @@
 
     <dependencies><!-- Test dependencies -->
         <dependency>
-            <groupId>de.bsommerfeld</groupId>
-            <artifactId>yaml</artifactId>
-            <version>3.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>de.bsommerfeld</groupId>
-            <artifactId>json</artifactId>
-            <version>3.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>de.bsommerfeld</groupId>
-            <artifactId>properties</artifactId>
-            <version>3.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>de.bsommerfeld</groupId>
-            <artifactId>toml</artifactId>
-            <version>3.3.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
