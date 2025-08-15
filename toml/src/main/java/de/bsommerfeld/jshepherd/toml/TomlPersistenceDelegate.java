@@ -7,8 +7,11 @@ import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
 import java.io.*;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -61,6 +64,8 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
 
       if (!tomlResult.isEmpty()) {
         applyDataToInstance(instance, new TomlDataExtractor(tomlResult));
+        // Second pass for TOML-specific section mapping (nested POJOs)
+        applyTomlSectionValues(instance, tomlResult);
         return true;
       }
       return false;
@@ -99,6 +104,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
       // Write simple fields first, then tables
       writeSimpleFields(writer, pojoInstance);
       writeTableFields(writer, pojoInstance);
+      writeAnnotatedSectionFields(writer, pojoInstance);
     } catch (IOException e) {
       System.err.println(LOG_PREFIX + "ERROR: Failed to save TOML file: " + e.getMessage());
       throw e;
@@ -132,6 +138,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
       // Write simple fields first, then tables (with comments)
       writeSimpleFieldsWithComments(writer, pojoInstance);
       writeTableFieldsWithComments(writer, pojoInstance);
+      writeAnnotatedSectionFieldsWithComments(writer, pojoInstance);
     } catch (IOException e) {
       System.err.println(LOG_PREFIX + "ERROR: Failed to save TOML file with comments: " + e.getMessage());
       throw e;
@@ -159,6 +166,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
 
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null) continue;
+
+      // Skip fields explicitly marked as TOML tables (handled separately)
+      if (field.getAnnotation(TomlSection.class) != null) continue;
 
       try {
         field.setAccessible(true);
@@ -200,6 +210,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null) continue;
 
+      // Skip fields explicitly marked as TOML tables (handled separately)
+      if (field.getAnnotation(TomlSection.class) != null) continue;
+
       try {
         field.setAccessible(true);
         Object value = field.get(pojoInstance);
@@ -209,6 +222,8 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
           if (firstTable) {
             writer.println(); // Blank line before first table
             firstTable = false;
+          } else {
+            writer.println(); // Blank line between subsequent tables
           }
 
           String tomlKey =
@@ -235,7 +250,6 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
     // Get all fields from the class hierarchy
     List<Field> fields =
         ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
-    boolean hasWrittenField = false;
 
     // Process each field
     for (int fieldIdx = 0; fieldIdx < fields.size(); fieldIdx++) {
@@ -247,6 +261,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
 
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null) continue;
+
+      // Skip fields explicitly marked as TOML tables (handled separately)
+      if (field.getAnnotation(TomlSection.class) != null) continue;
 
       try {
         field.setAccessible(true);
@@ -277,16 +294,29 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
           }
 
           writeTomlValue(writer, tomlKey, value);
-          hasWrittenField = true;
 
-          // Add blank line after simple fields if more fields follow
+          // Add blank line only if another simple field will be written next (not a table/section)
           boolean addBlankLine = false;
           for (int k = fieldIdx + 1; k < fields.size(); k++) {
             Field nextField = fields.get(k);
-            if (Modifier.isStatic(nextField.getModifiers())
-                || Modifier.isTransient(nextField.getModifiers())) continue;
-            if (nextField.getAnnotation(Key.class) != null) {
-              addBlankLine = true;
+            if (Modifier.isStatic(nextField.getModifiers()) || Modifier.isTransient(nextField.getModifiers())) continue;
+            if (nextField.getAnnotation(Key.class) == null) continue;
+            // If the next keyed field is a TOML section, do not add blank due to simple field
+            if (nextField.getAnnotation(TomlSection.class) != null) {
+              addBlankLine = false;
+              break;
+            }
+            try {
+              nextField.setAccessible(true);
+              Object nextVal = nextField.get(pojoInstance);
+              if (nextVal != null && !(nextVal instanceof Map)) {
+                // Another simple field will be written by this method
+                addBlankLine = true;
+                break;
+              }
+              // If it's a map or null, keep scanning for a subsequent simple field
+            } catch (IllegalAccessException ignored) {
+              // Be conservative: avoid adding extra spacing on access issues
               break;
             }
           }
@@ -325,6 +355,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null) continue;
 
+      // Skip fields explicitly marked as TOML sections (handled separately)
+      if (field.getAnnotation(TomlSection.class) != null) continue;
+
       try {
         field.setAccessible(true);
         Object value = field.get(pojoInstance);
@@ -334,6 +367,8 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
           if (firstTable) {
             writer.println(); // Blank line before first table section
             firstTable = false;
+          } else {
+            writer.println(); // Blank line between subsequent tables
           }
 
           String tomlKey =
@@ -350,6 +385,179 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>>
       } catch (IllegalAccessException e) {
         System.err.println(LOG_PREFIX + "ERROR: Could not access field " + field.getName() + 
                 " during table save with comments: " + e.getMessage());
+      }
+    }
+  }
+
+  private void writeAnnotatedSectionFields(PrintWriter writer, T pojoInstance) throws IOException {
+    List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
+    boolean firstTable = true;
+    for (Field field : fields) {
+      if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) continue;
+      Key keyAnnotation = field.getAnnotation(Key.class);
+      TomlSection section = field.getAnnotation(TomlSection.class);
+      if (keyAnnotation == null || section == null) continue;
+      try {
+        field.setAccessible(true);
+        Object value = field.get(pojoInstance);
+        String tableName = !section.value().isEmpty() ? section.value() : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+        if (value instanceof Map<?, ?> map) {
+          if (firstTable) { writer.println(); firstTable = false; } else { writer.println(); }
+          writeTomlTable(writer, tableName, map);
+        } else {
+          if (firstTable) { writer.println(); firstTable = false; } else { writer.println(); }
+          writeTomlSectionFromPojo(writer, tableName, value, null, false);
+        }
+      } catch (IllegalAccessException e) {
+        System.err.println(LOG_PREFIX + "ERROR: Could not access field " + field.getName() + " during section save: " + e.getMessage());
+      }
+    }
+  }
+
+  private void writeAnnotatedSectionFieldsWithComments(PrintWriter writer, T pojoInstance) throws IOException {
+    List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
+    boolean firstTable = true;
+    for (Field field : fields) {
+      if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) continue;
+      Key keyAnnotation = field.getAnnotation(Key.class);
+      TomlSection section = field.getAnnotation(TomlSection.class);
+      if (keyAnnotation == null || section == null) continue;
+      try {
+        field.setAccessible(true);
+        Object value = field.get(pojoInstance);
+        String tableName = !section.value().isEmpty() ? section.value() : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+        if (firstTable) { writer.println(); firstTable = false; } else { writer.println(); }
+        Comment fieldComment = field.getAnnotation(Comment.class);
+        if (fieldComment != null) {
+          for (String commentLine : fieldComment.value()) writer.println("# " + commentLine);
+        }
+        if (value instanceof Map<?, ?> map) {
+          writeTomlTable(writer, tableName, map);
+        } else {
+          writeTomlSectionFromPojo(writer, tableName, value, field, true);
+        }
+      } catch (IllegalAccessException e) {
+        System.err.println(LOG_PREFIX + "ERROR: Could not access field " + field.getName() + " during section save with comments: " + e.getMessage());
+      }
+    }
+  }
+
+  private void writeTomlSectionFromPojo(PrintWriter writer, String tableName, Object nestedPojo, Field originalField, boolean withComments) {
+    writer.println("[" + tableName + "]");
+    if (nestedPojo == null) {
+      return;
+    }
+    List<Field> nestedFields = ClassUtils.getAllFieldsInHierarchy(nestedPojo.getClass(), ConfigurablePojo.class);
+    for (Field nf : nestedFields) {
+      if (Modifier.isStatic(nf.getModifiers()) || Modifier.isTransient(nf.getModifiers())) continue;
+      Key k = nf.getAnnotation(Key.class);
+      if (k == null) continue;
+      if (withComments) {
+        Comment innerComment = nf.getAnnotation(Comment.class);
+        if (innerComment != null) {
+          for (String commentLine : innerComment.value()) writer.println("# " + commentLine);
+        }
+      }
+      try {
+        nf.setAccessible(true);
+        Object v = nf.get(nestedPojo);
+        if (v == null) {
+          continue;
+        }
+        String key = k.value().isEmpty() ? nf.getName() : k.value();
+        writeTomlValue(writer, key, v);
+      } catch (IllegalAccessException e) {
+        System.err.println(LOG_PREFIX + "ERROR: Could not access nested field " + nf.getName() + ": " + e.getMessage());
+      }
+    }
+  }
+
+  private void applyTomlSectionValues(T instance, TomlParseResult tomlResult) {
+    List<Field> fields = ClassUtils.getAllFieldsInHierarchy(instance.getClass(), ConfigurablePojo.class);
+    for (Field field : fields) {
+      if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) continue;
+      Key keyAnnotation = field.getAnnotation(Key.class);
+      TomlSection section = field.getAnnotation(TomlSection.class);
+      if (keyAnnotation == null || section == null) continue;
+      String tableKey = !section.value().isEmpty() ? section.value() : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+      if (!tomlResult.contains(tableKey)) continue;
+      Object raw = tomlResult.get(tableKey);
+      if (!(raw instanceof TomlTable tbl)) continue;
+      try {
+        field.setAccessible(true);
+        Class<?> fieldType = field.getType();
+        if (Map.class.isAssignableFrom(fieldType)) {
+          Map<String, Object> javaMap = new LinkedHashMap<>();
+          for (String k : tbl.keySet()) {
+            Object rv = tbl.get(k);
+            if (rv instanceof TomlArray ta) {
+              List<Object> list = new ArrayList<>();
+              for (int i = 0; i < ta.size(); i++) list.add(ta.get(i));
+              rv = list;
+            } else if (rv instanceof TomlTable tt) {
+              Map<String, Object> m = new LinkedHashMap<>();
+              for (String kk : tt.keySet()) m.put(kk, tt.get(kk));
+              rv = m;
+            }
+            javaMap.put(k, rv);
+          }
+          field.set(instance, javaMap);
+        } else {
+          Object target = field.get(instance);
+          if (target == null) {
+            try {
+              Constructor<?> ctor = fieldType.getDeclaredConstructor();
+              ctor.setAccessible(true);
+              target = ctor.newInstance();
+            } catch (Exception e) {
+              System.err.println(LOG_PREFIX + "WARNING: Could not instantiate nested section for field '" + field.getName() + "': " + e.getMessage());
+              continue;
+            }
+          }
+          List<Field> nestedFields = ClassUtils.getAllFieldsInHierarchy(fieldType, ConfigurablePojo.class);
+          for (Field nf : nestedFields) {
+            if (Modifier.isStatic(nf.getModifiers()) || Modifier.isTransient(nf.getModifiers())) continue;
+            Key innerKey = nf.getAnnotation(Key.class);
+            if (innerKey == null) continue;
+            String innerName = innerKey.value().isEmpty() ? nf.getName() : innerKey.value();
+            if (!tbl.contains(innerName)) continue;
+            Object rv = tbl.get(innerName);
+            Class<?> targetType = nf.getType();
+            if (rv instanceof TomlArray ta && List.class.isAssignableFrom(targetType)) {
+              List<Object> list = new ArrayList<>();
+              for (int i = 0; i < ta.size(); i++) list.add(ta.get(i));
+              // Attempt to convert numeric element types to match generic parameter (e.g., Integer)
+              Type gType = nf.getGenericType();
+              if (gType instanceof ParameterizedType pt) {
+                Type[] args = pt.getActualTypeArguments();
+                if (args.length == 1 && args[0] instanceof Class<?> elemClass) {
+                  if (Number.class.isAssignableFrom(elemClass) || elemClass.isPrimitive()) {
+                    List<Object> convertedList = new ArrayList<>(list.size());
+                    for (Object o : list) {
+                      convertedList.add(convertNumericIfNeeded(o, elemClass));
+                    }
+                    list = convertedList;
+                  }
+                }
+              }
+              rv = list;
+            } else if (rv instanceof TomlTable tt && Map.class.isAssignableFrom(targetType)) {
+              Map<String, Object> m = new LinkedHashMap<>();
+              for (String kk : tt.keySet()) m.put(kk, tt.get(kk));
+              rv = m;
+            }
+            Object converted = convertNumericIfNeeded(rv, targetType);
+            try {
+              nf.setAccessible(true);
+              nf.set(target, converted);
+            } catch (IllegalAccessException e) {
+              System.err.println(LOG_PREFIX + "WARNING: Could not set nested field '" + nf.getName() + "': " + e.getMessage());
+            }
+          }
+          field.set(instance, target);
+        }
+      } catch (IllegalAccessException e) {
+        System.err.println(LOG_PREFIX + "WARNING: Could not set field '" + field.getName() + "' from section: " + e.getMessage());
       }
     }
   }

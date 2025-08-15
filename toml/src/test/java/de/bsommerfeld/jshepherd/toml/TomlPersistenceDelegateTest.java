@@ -5,6 +5,7 @@ import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.core.ConfigurationException;
+import de.bsommerfeld.jshepherd.toml.TomlSection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ class TomlPersistenceDelegateTest {
     private Path configPath;
     private TomlPersistenceDelegate<TestConfig> delegate;
     private TestConfig testConfig;
+    private TestConfigWithSection testConfigWithSection;
 
     @BeforeEach
     void setUp() {
@@ -407,6 +409,69 @@ class TomlPersistenceDelegateTest {
         assertTrue(completed, "All threads should complete within timeout");
         assertTrue(exceptions.isEmpty(), 
                 "No exceptions should occur during concurrent access: " + exceptions);
+    }
+
+    @Test
+    @DisplayName("TOML Section - Save nested POJO as table")
+    void tomlSection_saveNestedPojoAsTable() throws IOException {
+        // Arrange
+        Path sectionPath = tempDir.resolve("section-config.toml");
+        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath, false);
+        TestConfigWithSection cfg = new TestConfigWithSection();
+        cfg.app = new InnerSection();
+        cfg.app.name = "demo";
+        cfg.app.enabled = true;
+        cfg.app.ports = Arrays.asList(8080, 8081);
+
+        // Act
+        sectionDelegate.saveSimple(cfg, sectionPath);
+
+        // Assert
+        String content = Files.readString(sectionPath);
+        assertTrue(content.contains("[app]"), "Should contain [app] table");
+        assertTrue(content.contains("name = \"demo\""), "Should contain name inside table");
+        assertTrue(content.contains("enabled = true"), "Should contain enabled inside table");
+        assertTrue(content.contains("ports = ["), "Should contain ports array inside table");
+    }
+
+    @Test
+    @DisplayName("TOML Section - Load nested POJO from table")
+    void tomlSection_loadNestedPojoFromTable() throws Exception {
+        // Arrange
+        Path sectionPath = tempDir.resolve("section-config-load.toml");
+        String toml = "[app]\n" +
+                "name = \"loaded\"\n" +
+                "enabled = true\n" +
+                "ports = [8080, 8082]\n";
+        Files.writeString(sectionPath, toml);
+        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath, false);
+        TestConfigWithSection cfg = new TestConfigWithSection();
+
+        // Act
+        boolean loaded = sectionDelegate.tryLoadFromFile(cfg);
+
+        // Assert
+        assertTrue(loaded, "Should load TOML with section");
+        assertNotNull(cfg.app, "Nested section object should be instantiated");
+        assertEquals("loaded", cfg.app.name);
+        assertTrue(cfg.app.enabled);
+        assertEquals(Arrays.asList(8080, 8082), cfg.app.ports);
+    }
+
+    // Config for TOML Section tests
+    private static class TestConfigWithSection extends ConfigurablePojo<TestConfigWithSection> {
+        @Key("app")
+        @TomlSection
+        private InnerSection app;
+    }
+
+    private static class InnerSection extends ConfigurablePojo<InnerSection> {
+        @Key("name")
+        private String name;
+        @Key("enabled")
+        private boolean enabled;
+        @Key("ports")
+        private List<Integer> ports = new ArrayList<>();
     }
 
     // Test implementation of ConfigurablePojo with various field types
