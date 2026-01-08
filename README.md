@@ -143,18 +143,12 @@ config.reload();
 |------------------------------|--------------|-----------------------------------|
 | `@Key("name")`               | Field        | Custom key name in config file    |
 | `@Comment("text")`           | Type, Field  | Adds comments (header or inline)  |
-| `@CommentSection("section")` | Field        | Groups related fields with header |
 | `@PostInject`                | Method       | Called after configuration loaded |
+| `@Section("name")`           | Field        | Nested POJO as section (all formats) |
 
-### TOML-Specific Annotations
+### Nested Sections with `@Section`
 
-| Annotation                 | Target | Purpose                              |
-|----------------------------|--------|--------------------------------------|
-| `@TomlSection`             | Field  | Marks nested POJO as TOML `[table]`  |
-| `@TomlSection("name")`     | Field  | TOML table with explicit name        |
-| `@TomlTable`               | Field  | Alias for `@TomlSection`             |
-
-### TOML Nested Sections Example
+The `@Section` annotation works across all formats (YAML, TOML, JSON) to create nested configuration structures:
 
 ```java
 @Comment("Server Configuration")
@@ -163,22 +157,43 @@ public class ServerConfig extends ConfigurablePojo<ServerConfig> {
     @Key("host")
     private String host = "localhost";
 
-    @TomlSection("database")
+    @Comment("Database connection settings")
+    @Section("database")
     private DatabaseSettings database = new DatabaseSettings();
 
-    @TomlSection("cache")
+    @Comment("Cache tuning")
+    @Section("cache")
     private CacheSettings cache = new CacheSettings();
-    
-    // ...
 }
 
+// Section POJOs don't extend ConfigurablePojo
 public class DatabaseSettings {
     @Key("url")
+    @Comment("JDBC connection URL")
     private String url = "jdbc:postgresql://localhost/mydb";
     
     @Key("pool-size")
     private int poolSize = 10;
 }
+```
+
+**Generated YAML:**
+
+```yaml
+# Server Configuration
+
+host: localhost
+
+# Database connection settings
+database:
+  # JDBC connection URL
+  url: jdbc:postgresql://localhost/mydb
+  pool-size: 10
+
+# Cache tuning
+cache:
+  max-entries: 1000
+  ttl-seconds: 300
 ```
 
 **Generated TOML:**
@@ -188,14 +203,35 @@ public class DatabaseSettings {
 
 host = "localhost"
 
+# Database connection settings
 [database]
+# JDBC connection URL
 url = "jdbc:postgresql://localhost/mydb"
 pool-size = 10
 
+# Cache tuning
 [cache]
 max-entries = 1000
 ttl-seconds = 300
 ```
+
+**Generated JSON:**
+
+```json
+{
+  "host": "localhost",
+  "database": {
+    "url": "jdbc:postgresql://localhost/mydb",
+    "pool-size": 10
+  },
+  "cache": {
+    "max-entries": 1000,
+    "ttl-seconds": 300
+  }
+}
+```
+
+> **Note:** `@Key` fields declared after `@Section` fields do NOT belong to the section — they remain at root level.
 
 ## API Reference
 
