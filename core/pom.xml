@@ -12,6 +12,9 @@
     <artifactId>core</artifactId>
     <version>${revision}</version>
 
+    <name>jShepherd Core</name>
+    <description>Core module providing annotations, base classes, and SPI for jShepherd configuration management.</description>
+
     <dependencies><!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
