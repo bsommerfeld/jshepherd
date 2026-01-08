@@ -1,8 +1,8 @@
 package de.bsommerfeld.jshepherd.core;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
 
 import java.io.IOException;
@@ -187,41 +187,6 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
     // ==================== COMMENT WRITING UTILITIES ====================
 
     /**
-     * Tracks comment section state during serialization to avoid duplicate section
-     * headers.
-     * Create a new instance for each save operation to ensure clean state.
-     */
-    protected static final class CommentContext {
-        private String lastSectionHash = null;
-
-        /** Creates a new comment context with empty state. */
-        public CommentContext() {
-        }
-
-        /** Resets the context for a new save operation. */
-        public void reset() {
-            lastSectionHash = null;
-        }
-
-        /** Returns true if this is the first section being written. */
-        public boolean isFirstSection() {
-            return lastSectionHash == null;
-        }
-
-        /**
-         * Returns true if the given section hash differs from the last one.
-         * Updates internal state if different.
-         */
-        public boolean shouldWriteSection(String sectionHash) {
-            if (sectionHash.equals(lastSectionHash)) {
-                return false;
-            }
-            lastSectionHash = sectionHash;
-            return true;
-        }
-    }
-
-    /**
      * Writes class-level comments (file header) from @Comment annotation on the
      * POJO class.
      */
@@ -233,30 +198,6 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             }
             writer.println();
         }
-    }
-
-    /**
-     * Writes section comments for a field if it has a @CommentSection annotation
-     * and the section differs from the previous one.
-     *
-     * @return true if a section comment was written (useful for formatting
-     *         decisions)
-     */
-    protected final boolean writeSectionComments(PrintWriter writer, Field field, CommentContext context) {
-        CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
-        if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
-            String currentSectionHash = String.join("|", sectionAnnotation.value());
-            if (context.shouldWriteSection(currentSectionHash)) {
-                if (!context.isFirstSection()) {
-                    writer.println();
-                }
-                for (String commentLine : sectionAnnotation.value()) {
-                    writer.println("# " + commentLine);
-                }
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -281,6 +222,61 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             return field.getName();
         }
         return keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+    }
+
+    // ==================== SECTION UTILITIES ====================
+
+    /**
+     * Checks if a field is annotated with @Section.
+     */
+    protected final boolean isSection(Field field) {
+        return field.getAnnotation(Section.class) != null;
+    }
+
+    /**
+     * Resolves the section name from @Section annotation, falling back to @Key or
+     * field name.
+     */
+    protected final String resolveSectionName(Field field) {
+        Section sectionAnnotation = field.getAnnotation(Section.class);
+        if (sectionAnnotation != null && !sectionAnnotation.value().isEmpty()) {
+            return sectionAnnotation.value();
+        }
+        return resolveKey(field);
+    }
+
+    /**
+     * Gets all non-section fields (regular @Key fields) from a class.
+     * These should be written first, before any sections.
+     */
+    protected final List<Field> getNonSectionFields(Class<?> clazz, Class<?> stopClass) {
+        return ClassUtils.getAllFieldsInHierarchy(clazz, stopClass).stream()
+                .filter(f -> !shouldSkipField(f))
+                .filter(f -> f.getAnnotation(Key.class) != null)
+                .filter(f -> !isSection(f))
+                .toList();
+    }
+
+    /**
+     * Gets all section fields from a class.
+     * These should be written after regular fields.
+     */
+    protected final List<Field> getSectionFields(Class<?> clazz, Class<?> stopClass) {
+        return ClassUtils.getAllFieldsInHierarchy(clazz, stopClass).stream()
+                .filter(f -> !shouldSkipField(f))
+                .filter(this::isSection)
+                .toList();
+    }
+
+    /**
+     * Gets all fields from a nested section POJO that have @Key annotation.
+     * Section POJOs don't extend ConfigurablePojo, so we use Object as stop class.
+     */
+    protected final List<Field> getSectionPojoFields(Object sectionPojo) {
+        return ClassUtils.getAllFieldsInHierarchy(sectionPojo.getClass(), Object.class).stream()
+                .filter(f -> !shouldSkipField(f))
+                .filter(f -> f.getAnnotation(Key.class) != null)
+                .toList();
     }
 
     // ==================== PRIVATE HELPERS ====================
