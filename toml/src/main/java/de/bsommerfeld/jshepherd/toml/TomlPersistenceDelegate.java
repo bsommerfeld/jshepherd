@@ -1,7 +1,6 @@
 package de.bsommerfeld.jshepherd.toml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
@@ -33,8 +32,6 @@ import java.util.stream.Collectors;
 class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPersistenceDelegate<T> {
 
   private static final Logger LOGGER = Logger.getLogger(TomlPersistenceDelegate.class.getName());
-
-  private String lastCommentSectionHash;
 
   TomlPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
     super(filePath, useComplexSaveWithComments);
@@ -85,26 +82,14 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   protected void saveWithComments(T pojoInstance, Path targetPath) throws IOException {
     try (PrintWriter writer = new PrintWriter(
         Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
-      this.lastCommentSectionHash = null;
+      CommentContext commentContext = new CommentContext();
       writeClassComments(writer, pojoInstance);
-      writeSimpleFieldsWithComments(writer, pojoInstance);
+      writeSimpleFieldsWithComments(writer, pojoInstance, commentContext);
       writeTableFieldsWithComments(writer, pojoInstance);
       writeAnnotatedSectionFieldsWithComments(writer, pojoInstance);
     } catch (IOException e) {
       LOGGER.log(Level.SEVERE, "Failed to save TOML file with comments", e);
       throw e;
-    }
-  }
-
-  // ... Helper writing methods ...
-
-  private void writeClassComments(PrintWriter writer, T pojoInstance) {
-    Comment classComment = pojoInstance.getClass().getAnnotation(Comment.class);
-    if (classComment != null && classComment.value().length > 0) {
-      for (String line : classComment.value()) {
-        writer.println("# " + line);
-      }
-      writer.println();
     }
   }
 
@@ -160,7 +145,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
   }
 
-  private void writeSimpleFieldsWithComments(PrintWriter writer, T pojoInstance) {
+  private void writeSimpleFieldsWithComments(PrintWriter writer, T pojoInstance, CommentContext commentContext) {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     for (int i = 0; i < fields.size(); i++) {
       Field field = fields.get(i);
@@ -174,9 +159,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         field.setAccessible(true);
         Object value = field.get(pojoInstance);
         if (value != null && !(value instanceof Map)) {
-          String tomlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+          String tomlKey = resolveKey(field);
 
-          writeSectionComments(writer, field);
+          writeSectionComments(writer, field, commentContext);
           writeFieldComments(writer, field);
           writeTomlValue(writer, tomlKey, value);
 
@@ -459,32 +444,6 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t",
         "\\t");
   }
-
-  private void writeSectionComments(PrintWriter writer, Field field) {
-    CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
-    if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
-      String currentSectionHash = String.join("|", sectionAnnotation.value());
-      if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
-        if (this.lastCommentSectionHash != null)
-          writer.println();
-        for (String commentLine : sectionAnnotation.value())
-          writer.println("# " + commentLine);
-        this.lastCommentSectionHash = currentSectionHash;
-      }
-    }
-  }
-
-  private void writeFieldComments(PrintWriter writer, Field field) {
-    Comment fieldComment = field.getAnnotation(Comment.class);
-    if (fieldComment != null) {
-      for (String commentLine : fieldComment.value())
-        writer.println("# " + commentLine);
-    }
-  }
-
-  // ... Loading Logic (applyTomlSectionValues, DataExtractor) ...
-  // Using existing logic for applyTomlSectionValues but cleaning up logs.
-  // Copying over optimized applyTomlSectionValues from original (but cleaner)
 
   private void applyTomlSectionValues(T instance, TomlParseResult tomlResult) {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(instance.getClass(), ConfigurablePojo.class);
