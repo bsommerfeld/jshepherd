@@ -45,7 +45,9 @@
         <module>json</module>
         <module>yaml</module>
         <module>toml</module>
-        <module>.integration-tests</module>
+        <!-- .integration-tests is intentionally NOT listed here.
+             It must not be deployed to Maven Central.
+             Run integration tests separately: mvn test -f .integration-tests/pom.xml -->
     </modules>
 
     <properties>
