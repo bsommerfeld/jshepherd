@@ -45,7 +45,7 @@
         <module>json</module>
         <module>yaml</module>
         <module>toml</module>
-        <module>integration-tests</module>
+        <module>.integration-tests</module>
     </modules>
 
     <properties>
