@@ -13,9 +13,8 @@
     <artifactId>yaml</artifactId>
     <version>${revision}</version>
 
-    <properties>
-        <shade.yaml>true</shade.yaml>
-    </properties>
+    <name>jShepherd YAML</name>
+    <description>YAML format support for jShepherd configuration management using SnakeYAML.</description>
 
     <dependencies>
         <dependency>
@@ -58,4 +57,33 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.yaml.snakeyaml</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.yaml.shared.snakeyaml</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.auto.service</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.yaml.shared.autoservice</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
