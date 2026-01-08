@@ -1,7 +1,6 @@
 package de.bsommerfeld.jshepherd.json;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.core.ConfigurationException;
@@ -85,7 +84,6 @@ class JsonPersistenceDelegateTest {
         assertTrue(docContent.contains("# Configuration Documentation"), "Documentation should have title");
         assertTrue(docContent.contains("String value description"), "Documentation should contain field comment");
         assertTrue(docContent.contains("**Type:** `String`"), "Documentation should contain field type");
-        assertTrue(docContent.contains("## Basic Types"), "Documentation should contain comment section");
     }
 
     @Test
@@ -114,9 +112,9 @@ class JsonPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check collections
-        assertTrue(content.contains("\"string-list\" : [ \"item1\", \"item2\", \"item3\" ]"), 
+        assertTrue(content.contains("\"string-list\" : [ \"item1\", \"item2\", \"item3\" ]"),
                 "JSON should contain string list");
-        assertTrue(content.contains("\"int-list\" : [ 1, 2, 3, 4, 5 ]"), 
+        assertTrue(content.contains("\"int-list\" : [ 1, 2, 3, 4, 5 ]"),
                 "JSON should contain int list");
         assertTrue(content.contains("\"string-map\""), "JSON should contain string map");
         assertTrue(content.contains("\"key1\" : \"value1\""), "JSON should contain map entries");
@@ -136,7 +134,7 @@ class JsonPersistenceDelegateTest {
         assertEquals("value1", loadedConfig.stringMap.get("key1"), "Map value should match");
         assertNotNull(loadedConfig.nestedMap, "Nested map should not be null");
         assertEquals("nested value", loadedConfig.nestedMap.get("nestedString"), "Nested string should match");
-        assertEquals(42, ((Number)loadedConfig.nestedMap.get("nestedInt")).intValue(), "Nested int should match");
+        assertEquals(42, ((Number) loadedConfig.nestedMap.get("nestedInt")).intValue(), "Nested int should match");
     }
 
     @Test
@@ -170,7 +168,8 @@ class JsonPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check special characters are properly escaped
-        assertTrue(content.contains("\"special-chars\" : \"Special chars: !@#$%^&*()_+{}[]|\\\\:;\\\"'<>,.?/\\n\\t\\r\""), 
+        assertTrue(
+                content.contains("\"special-chars\" : \"Special chars: !@#$%^&*()_+{}[]|\\\\:;\\\"'<>,.?/\\n\\t\\r\""),
                 "JSON should contain properly escaped special characters");
 
         // Act - Load into a new instance
@@ -178,7 +177,7 @@ class JsonPersistenceDelegateTest {
         delegate.tryLoadFromFile(loadedConfig);
 
         // Assert - Special characters loaded correctly
-        assertEquals(testConfig.specialChars, loadedConfig.specialChars, 
+        assertEquals(testConfig.specialChars, loadedConfig.specialChars,
                 "Special characters should be preserved after save/load");
     }
 
@@ -199,24 +198,26 @@ class JsonPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check empty values
-        assertTrue(content.contains("\"empty-string\" : \"\""), 
+        assertTrue(content.contains("\"empty-string\" : \"\""),
                 "JSON should contain empty string");
         // Null values should be omitted from JSON
-        assertFalse(content.contains("\"null-string\""), 
+        assertFalse(content.contains("\"null-string\""),
                 "JSON should not contain null string");
-        assertTrue(content.contains("\"string-list\" : [ ]"), 
+        assertTrue(content.contains("\"string-list\" : [ ]"),
                 "JSON should contain empty list");
-        assertTrue(content.contains("\"string-map\" : { }"), 
+        assertTrue(content.contains("\"string-map\" : { }"),
                 "JSON should contain empty map");
 
         // Act - Load into a new instance
         TestConfig loadedConfig = new TestConfig();
-        // Note: We're not setting nullString here, as it should remain the default value
+        // Note: We're not setting nullString here, as it should remain the default
+        // value
         delegate.tryLoadFromFile(loadedConfig);
 
         // Assert - Empty/null values loaded correctly
         assertEquals("", loadedConfig.emptyString, "Empty string should be preserved");
-        // Since null values are omitted from JSON, the field will retain its default value (null)
+        // Since null values are omitted from JSON, the field will retain its default
+        // value (null)
         assertNull(loadedConfig.nullString, "Null string should retain default value (null)");
         assertTrue(loadedConfig.stringList.isEmpty(), "String list should be empty");
         assertTrue(loadedConfig.stringMap.isEmpty(), "String map should be empty");
@@ -243,9 +244,9 @@ class JsonPersistenceDelegateTest {
         delegate.tryLoadFromFile(loadedConfig);
 
         // Assert - Long string loaded correctly
-        assertEquals(testConfig.veryLongString, loadedConfig.veryLongString, 
+        assertEquals(testConfig.veryLongString, loadedConfig.veryLongString,
                 "Very long string should be preserved after save/load");
-        assertTrue(loadedConfig.veryLongString.length() > 9000, 
+        assertTrue(loadedConfig.veryLongString.length() > 9000,
                 "Loaded string should maintain its length");
     }
 
@@ -288,9 +289,9 @@ class JsonPersistenceDelegateTest {
 
         // Verify exception message contains useful information
         String errorMessage = exception.getMessage();
-        assertTrue(errorMessage != null && 
-                (errorMessage.contains("JSON") || errorMessage.contains("parse") || 
-                 errorMessage.contains("syntax") || errorMessage.contains("Unexpected end")),
+        assertTrue(errorMessage != null &&
+                (errorMessage.contains("JSON") || errorMessage.contains("parse") ||
+                        errorMessage.contains("syntax") || errorMessage.contains("Unexpected end")),
                 "Exception should mention parsing error: " + errorMessage);
     }
 
@@ -307,7 +308,7 @@ class JsonPersistenceDelegateTest {
 
         // Verify exception message contains useful information
         String errorMessage = exception.getMessage();
-        assertTrue(errorMessage != null && 
+        assertTrue(errorMessage != null &&
                 (errorMessage.contains("end-of-input") || errorMessage.contains("empty")),
                 "Exception should mention empty file or end-of-input: " + errorMessage);
 
@@ -329,7 +330,7 @@ class JsonPersistenceDelegateTest {
         }, "Should throw exception for non-existent file");
 
         // Verify exception is related to file not found
-        assertTrue(exception instanceof IOException, 
+        assertTrue(exception instanceof IOException,
                 "Exception should be an IOException");
     }
 
@@ -386,8 +387,8 @@ class JsonPersistenceDelegateTest {
 
                     // Create a unique path for this thread
                     Path threadPath = tempDir.resolve("thread-" + threadNum + ".json");
-                    JsonPersistenceDelegate<TestConfig> threadDelegate = 
-                            new JsonPersistenceDelegate<>(threadPath, false);
+                    JsonPersistenceDelegate<TestConfig> threadDelegate = new JsonPersistenceDelegate<>(threadPath,
+                            false);
 
                     // Save and load
                     threadDelegate.saveSimple(threadConfig, threadPath);
@@ -411,16 +412,15 @@ class JsonPersistenceDelegateTest {
 
         // Assert
         assertTrue(completed, "All threads should complete within timeout");
-        assertTrue(exceptions.isEmpty(), 
+        assertTrue(exceptions.isEmpty(),
                 "No exceptions should occur during concurrent access: " + exceptions);
     }
 
     // Test implementation of ConfigurablePojo with various field types
-    @Comment({"Test configuration class", "Used for testing JSON persistence"})
+    @Comment({ "Test configuration class", "Used for testing JSON persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
         @Key("string-value")
         @Comment("String value description")
-        @CommentSection("Basic Types")
         private String stringValue = "default";
 
         @Key("int-value")
@@ -441,7 +441,6 @@ class JsonPersistenceDelegateTest {
 
         @Key("string-list")
         @Comment("List of strings")
-        @CommentSection("Collection Types")
         private List<String> stringList = new ArrayList<>();
 
         @Key("int-list")
@@ -458,7 +457,6 @@ class JsonPersistenceDelegateTest {
 
         @Key("special-chars")
         @Comment("String with special characters")
-        @CommentSection("Special Cases")
         private String specialChars = "";
 
         @Key("empty-string")

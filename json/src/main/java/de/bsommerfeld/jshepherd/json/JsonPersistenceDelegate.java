@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
@@ -36,9 +36,6 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     private static final Logger LOGGER = Logger.getLogger(JsonPersistenceDelegate.class.getName());
 
     private final ObjectMapper objectMapper;
-
-    // Used for markdown documentation generation - tracks section headers
-    private String lastDocSectionHash = null;
 
     JsonPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         super(filePath, useComplexSaveWithComments);
@@ -129,8 +126,6 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             writer.println();
         }
 
-        this.lastDocSectionHash = null;
-
         // Get all fields from the class hierarchy
         List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
         boolean hasAnyDocumentedFields = false;
@@ -146,19 +141,6 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
                 continue;
 
             String jsonKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
-
-            // Handle section comments
-            CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
-            if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
-                String currentSectionHash = String.join("|", sectionAnnotation.value());
-                if (!currentSectionHash.equals(this.lastDocSectionHash)) {
-                    if (hasAnyDocumentedFields)
-                        writer.println();
-                    writer.println("## " + String.join(" / ", sectionAnnotation.value()));
-                    writer.println();
-                    this.lastDocSectionHash = currentSectionHash;
-                }
-            }
 
             // Handle field comments
             Comment fieldComment = field.getAnnotation(Comment.class);
@@ -196,10 +178,18 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
     /**
      * Custom Jackson Annotation Introspector to support JShepherd annotations.
+     * Handles @Key for regular fields and @Section for nested POJO fields.
      */
     private static class JShepherdAnnotationIntrospector extends JacksonAnnotationIntrospector {
         @Override
         public PropertyName findNameForSerialization(Annotated a) {
+            // Check @Section first (for nested POJOs)
+            Section section = a.getAnnotation(Section.class);
+            if (section != null && !section.value().isEmpty()) {
+                return PropertyName.construct(section.value());
+            }
+
+            // Then check @Key
             Key key = a.getAnnotation(Key.class);
             if (key != null && !key.value().isEmpty()) {
                 return PropertyName.construct(key.value());
@@ -211,6 +201,13 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
         @Override
         public PropertyName findNameForDeserialization(Annotated a) {
+            // Check @Section first (for nested POJOs)
+            Section section = a.getAnnotation(Section.class);
+            if (section != null && !section.value().isEmpty()) {
+                return PropertyName.construct(section.value());
+            }
+
+            // Then check @Key
             Key key = a.getAnnotation(Key.class);
             if (key != null && !key.value().isEmpty()) {
                 return PropertyName.construct(key.value());
