@@ -13,18 +13,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Abstract base class for all persistence delegates.
- * Provides common functionality for file operations, type conversion, and reflection-based data mapping.
+ * Provides common functionality for file operations, type conversion, and
+ * reflection-based data mapping.
  */
 public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>> implements PersistenceDelegate<T> {
 
-    private static final Map<Class<?>, Function<Number, Object>> NUMERIC_CONVERTERS;
+    private static final Logger LOGGER = Logger.getLogger(AbstractPersistenceDelegate.class.getName());
 
-    static {
-        NUMERIC_CONVERTERS = Map.ofEntries(Map.entry(int.class, Number::intValue), Map.entry(Integer.class, Number::intValue), Map.entry(float.class, Number::floatValue), Map.entry(Float.class, Number::floatValue), Map.entry(double.class, Number::doubleValue), Map.entry(Double.class, Number::doubleValue), Map.entry(long.class, Number::longValue), Map.entry(Long.class, Number::longValue), Map.entry(short.class, Number::shortValue), Map.entry(Short.class, Number::shortValue), Map.entry(byte.class, Number::byteValue), Map.entry(Byte.class, Number::byteValue));
-    }
+    private static final Map<Class<?>, Function<Number, Object>> NUMERIC_CONVERTERS = Map.ofEntries(
+            Map.entry(int.class, Number::intValue),
+            Map.entry(Integer.class, Number::intValue),
+            Map.entry(float.class, Number::floatValue),
+            Map.entry(Float.class, Number::floatValue),
+            Map.entry(double.class, Number::doubleValue),
+            Map.entry(Double.class, Number::doubleValue),
+            Map.entry(long.class, Number::longValue),
+            Map.entry(Long.class, Number::longValue),
+            Map.entry(short.class, Number::shortValue),
+            Map.entry(Short.class, Number::shortValue),
+            Map.entry(byte.class, Number::byteValue),
+            Map.entry(Byte.class, Number::byteValue));
 
     protected final Path filePath;
     protected final boolean useComplexSaveWithComments;
@@ -44,20 +57,20 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
                 T defaultInstance = defaultPojoSupplier.get();
 
                 if (tryLoadFromFile(defaultInstance)) {
-                    System.out.println("INFO: Configuration loaded from " + filePath);
+                    LOGGER.info(() -> "Configuration loaded from " + filePath);
                     return defaultInstance;
                 } else {
-                    System.out.println("INFO: Config file '" + filePath + "' was empty. Using defaults.");
+                    LOGGER.info(() -> "Config file '" + filePath + "' was empty. Using defaults.");
                 }
             } catch (Exception e) {
-                System.err.println("WARNING: Initial load/parse of '" + filePath + "' failed. Using defaults. Error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                LOGGER.log(Level.WARNING, "Initial load/parse of '" + filePath + "' failed. Using defaults.", e);
             }
         } else {
-            System.out.println("INFO: Config file '" + filePath + "' not found. Creating with defaults.");
+            LOGGER.info(() -> "Config file '" + filePath + "' not found. Creating with defaults.");
         }
 
         T defaultInstance = defaultPojoSupplier.get();
-        System.out.println("INFO: Saving initial/default configuration to: " + filePath);
+        LOGGER.info(() -> "Saving initial/default configuration to: " + filePath);
         save(defaultInstance);
         return defaultInstance;
     }
@@ -67,12 +80,12 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
         Path parentDir = filePath.getParent();
         Path tempFilePath = null;
         try {
-            if (parentDir != null) Files.createDirectories(parentDir);
+            if (parentDir != null)
+                Files.createDirectories(parentDir);
             tempFilePath = Files.createTempFile(
                     parentDir != null ? parentDir : Paths.get("."),
                     filePath.getFileName().toString(),
-                    ".tmpjhp"
-            );
+                    ".tmpjhp");
 
             if (useComplexSaveWithComments) {
                 saveWithComments(pojoInstance, tempFilePath);
@@ -81,7 +94,7 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             }
 
             Files.move(tempFilePath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            System.out.println("INFO: Configuration saved to " + filePath);
+            LOGGER.info(() -> "Configuration saved to " + filePath);
         } catch (IOException e) {
             throw new ConfigurationException("Failed to save configuration to " + filePath, e);
         } finally {
@@ -92,15 +105,17 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
     @Override
     public final void reload(T pojoInstanceToUpdate) {
         if (!Files.exists(filePath)) {
-            System.out.println("INFO: Configuration file '" + filePath + "' not found on reload attempt. Current values in instance remain.");
+            LOGGER.info(() -> "Configuration file '" + filePath
+                    + "' not found on reload attempt. Current values in instance remain.");
             return;
         }
 
         try {
             if (tryLoadFromFile(pojoInstanceToUpdate)) {
-                System.out.println("INFO: Configuration reloaded into existing instance from " + filePath);
+                LOGGER.info(() -> "Configuration reloaded into existing instance from " + filePath);
             } else {
-                System.out.println("INFO: Configuration file '" + filePath + "' was empty on reload. Current values in instance remain (likely defaults).");
+                LOGGER.info(() -> "Configuration file '" + filePath
+                        + "' was empty on reload. Current values in instance remain.");
             }
         } catch (Exception e) {
             throw new ConfigurationException("Error reloading configuration from " + filePath, e);
@@ -132,12 +147,13 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
         List<Field> fields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
 
         for (Field field : fields) {
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+            if (shouldSkipField(field)) {
                 continue;
             }
 
             Key keyAnnotation = field.getAnnotation(Key.class);
-            if (keyAnnotation == null) continue;
+            if (keyAnnotation == null)
+                continue;
 
             String key = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
 
@@ -150,12 +166,8 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
                         Object convertedValue = convertNumericIfNeeded(value, field.getType());
                         field.set(target, convertedValue);
                     }
-                } catch (IllegalAccessException e) {
-                    System.err.println("WARNING: Could not set field '" + field.getName() + "' during data application: " + e.getMessage());
-                } catch (IllegalArgumentException e) {
-                    System.err.println("WARNING: Type conversion failed for field '" + field.getName() + "': " + e.getMessage());
                 } catch (Exception e) {
-                    System.err.println("WARNING: Error processing field '" + field.getName() + "': " + e.getMessage());
+                    LOGGER.log(Level.WARNING, "Error processing field '" + field.getName() + "'", e);
                 }
             }
         }
@@ -174,10 +186,19 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
         }
     }
 
+    /**
+     * Checks if a field should be skipped during persistence operations.
+     * Skips static and transient fields.
+     */
+    protected final boolean shouldSkipField(Field field) {
+        return Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers());
+    }
+
     // ==================== ABSTRACT METHODS ====================
 
     /**
      * Format-specific loading implementation.
+     * 
      * @return true if data was loaded successfully, false if file was empty
      */
     protected abstract boolean tryLoadFromFile(T instance) throws Exception;
@@ -199,6 +220,7 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
      */
     protected interface DataExtractor {
         boolean hasValue(String key);
+
         Object getValue(String key, Class<?> targetType);
     }
 }

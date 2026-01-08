@@ -83,7 +83,6 @@ class YamlPersistenceDelegateTest {
         assertFalse(content.contains("!!"), "YAML must not contain any global tag for boolean value");
     }
 
-
     @Test
     @DisplayName("Save simple - Should create a valid YAML file with basic types")
     void saveSimple_shouldCreateValidYamlFile() throws IOException {
@@ -102,11 +101,11 @@ class YamlPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check basic types - YAML format uses field names from JavaBean properties
-        assertTrue(content.contains("stringValue: test value"), "YAML should contain string value");
-        assertTrue(content.contains("intValue: 42"), "YAML should contain int value");
-        assertTrue(content.contains("boolValue: true"), "YAML should contain boolean value");
-        assertTrue(content.contains("doubleValue: 3.14159"), "YAML should contain double value");
-        assertTrue(content.contains("longValue: 9876543210"), "YAML should contain long value");
+        assertTrue(content.contains("string-value: test value"), "YAML should contain string value");
+        assertTrue(content.contains("int-value: 42"), "YAML should contain int value");
+        assertTrue(content.contains("bool-value: true"), "YAML should contain boolean value");
+        assertTrue(content.contains("double-value: 3.14159"), "YAML should contain double value");
+        assertTrue(content.contains("long-value: 9876543210"), "YAML should contain long value");
     }
 
     @Test
@@ -130,7 +129,8 @@ class YamlPersistenceDelegateTest {
         assertTrue(content.contains("# Boolean value description"), "YAML should contain boolean comment");
         assertTrue(content.contains("# Basic Types"), "YAML should contain comment section");
 
-        // Check for values - The saveWithComments method in YamlPersistenceDelegate uses the @Key annotation values
+        // Check for values - The saveWithComments method in YamlPersistenceDelegate
+        // uses the @Key annotation values
         assertTrue(content.contains("string-value:"), "YAML should contain string value key");
         assertTrue(content.contains("int-value:"), "YAML should contain int value key");
         assertTrue(content.contains("bool-value:"), "YAML should contain bool value key");
@@ -239,7 +239,8 @@ class YamlPersistenceDelegateTest {
         assertEquals("value1", reloaded.stringMap.get("key1"), "Map should contain key1=value1");
         assertEquals("value2", reloaded.stringMap.get("key2"), "Map should contain key2=value2");
 
-        // Nested maps are more complex and might be handled differently by different implementations
+        // Nested maps are more complex and might be handled differently by different
+        // implementations
         // Just check that something was loaded
         assertFalse(reloaded.nestedMap.isEmpty(), "Nested map should not be empty");
     }
@@ -270,7 +271,7 @@ class YamlPersistenceDelegateTest {
         delegate.save(testConfig);
         TestConfig reloaded = new TestConfig();
         reloaded.emptyString = "not empty"; // Set to non-empty to verify it gets overwritten
-        reloaded.nullString = "not null";   // Set to non-null to verify it gets overwritten
+        reloaded.nullString = "not null"; // Set to non-null to verify it gets overwritten
         delegate.reload(reloaded);
 
         // Assert - Empty and null values should be preserved
@@ -316,7 +317,8 @@ class YamlPersistenceDelegateTest {
         // Print the actual error message for debugging
         System.out.println("[DEBUG_LOG] YAML parse error: " + exception.getMessage());
 
-        // We don't need to check the specific error message content, just that an exception was thrown
+        // We don't need to check the specific error message content, just that an
+        // exception was thrown
         // The exact error message format can vary between YAML parser implementations
         assertNotNull(exception.getMessage(), "Exception should have an error message");
     }
@@ -375,8 +377,8 @@ class YamlPersistenceDelegateTest {
 
                     // Create a unique path for this thread
                     Path threadPath = tempDir.resolve("thread-" + threadNum + ".yaml");
-                    YamlPersistenceDelegate<TestConfig> threadDelegate =
-                            new YamlPersistenceDelegate<>(threadPath, false);
+                    YamlPersistenceDelegate<TestConfig> threadDelegate = new YamlPersistenceDelegate<>(threadPath,
+                            false);
 
                     // Save and load - catch any exceptions that might occur
                     try {
@@ -408,7 +410,7 @@ class YamlPersistenceDelegateTest {
     }
 
     // Test implementation of ConfigurablePojo with various field types
-    @Comment({"Test configuration class", "Used for testing YAML persistence"})
+    @Comment({ "Test configuration class", "Used for testing YAML persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
         @Key("string-value")
         @Comment("String value description")

@@ -1,5 +1,8 @@
 package de.bsommerfeld.jshepherd.json;
 
+import com.fasterxml.jackson.databind.PropertyName;
+import com.fasterxml.jackson.databind.introspect.Annotated;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
@@ -11,23 +14,28 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.*;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Implementation of PersistenceDelegate for JSON format using Jackson.
- * This class handles loading, saving, and reloading of configuration objects in JSON format.
- * Note: JSON format does not support comments natively, so comment annotations are ignored.
- * Instead, a separate Markdown documentation file is generated when comments are requested.
+ * This class handles loading, saving, and reloading of configuration objects in
+ * JSON format.
+ * Note: JSON format does not support comments natively, so comment annotations
+ * are ignored.
+ * Instead, a separate Markdown documentation file is generated when comments
+ * are requested.
  */
 class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPersistenceDelegate<T> {
-    private static final String LOG_PREFIX = "[JSON] ";
+
+    private static final Logger LOGGER = Logger.getLogger(JsonPersistenceDelegate.class.getName());
+
     private final ObjectMapper objectMapper;
-    private String lastCommentSectionHash;
 
     JsonPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         super(filePath, useComplexSaveWithComments);
@@ -36,67 +44,38 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        this.objectMapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+        this.objectMapper.setAnnotationIntrospector(new JShepherdAnnotationIntrospector());
 
         // Warn user if comments are requested but not supported
         if (useComplexSaveWithComments) {
-            System.out.println(LOG_PREFIX + "WARNING: JSON format does not support comments natively. " +
-                    "Comment annotations (@Comment, @CommentSection) will be ignored. " +
-                    "A separate documentation file will be generated instead.");
+            LOGGER.info(
+                    "JSON format does not support comments natively. Comment annotations will be ignored. A separate documentation file will be generated instead.");
         }
     }
 
-    /**
-     * Attempts to load configuration data from the JSON file into the provided instance.
-     * 
-     * @param instance The instance to load data into
-     * @return true if data was successfully loaded, false otherwise
-     * @throws Exception if an error occurs during loading
-     */
     @Override
     protected boolean tryLoadFromFile(T instance) throws Exception {
         try {
-            Map<String, Object> jsonData = objectMapper.readValue(filePath.toFile(), Map.class);
-
-            if (jsonData != null && !jsonData.isEmpty()) {
-                applyDataToInstance(instance, new JsonDataExtractor(jsonData));
-                return true;
-            }
-            return false;
+            // Jackson's readerForUpdating directly populates the existing instance
+            objectMapper.readerForUpdating(instance).readValue(filePath.toFile());
+            return true;
         } catch (IOException e) {
-            System.err.println(LOG_PREFIX + "ERROR: Failed to load JSON file: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to load JSON file", e);
             throw e;
         }
     }
 
-    /**
-     * Saves the configuration data to a JSON file without comments.
-     * 
-     * @param pojoInstance The instance to save
-     * @param targetPath The path to save the file to
-     * @throws IOException if an error occurs during saving
-     */
     @Override
     protected void saveSimple(T pojoInstance, Path targetPath) throws IOException {
         try {
-            Map<String, Object> jsonMap = createJsonMap(pojoInstance);
-
-            try (Writer writer = Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                objectMapper.writeValue(writer, jsonMap);
-            }
+            objectMapper.writeValue(targetPath.toFile(), pojoInstance);
         } catch (IOException e) {
-            System.err.println(LOG_PREFIX + "ERROR: Failed to save JSON file: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to save JSON file", e);
             throw e;
         }
     }
 
-    /**
-     * Saves the configuration data to a JSON file and generates a separate Markdown documentation file
-     * containing comments and field information.
-     * 
-     * @param pojoInstance The instance to save
-     * @param targetPath The path to save the JSON file to
-     * @throws IOException if an error occurs during saving
-     */
     @Override
     protected void saveWithComments(T pojoInstance, Path targetPath) throws IOException {
         try {
@@ -116,21 +95,14 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             try (PrintWriter docWriter = new PrintWriter(Files.newBufferedWriter(finalDocPath,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
                 generateDocumentationFile(pojoInstance, docWriter);
-                System.out.println(LOG_PREFIX + "INFO: Configuration documentation saved to " + finalDocPath);
+                LOGGER.info("Configuration documentation saved to " + finalDocPath);
             }
         } catch (IOException e) {
-            System.err.println(LOG_PREFIX + "ERROR: Failed to save documentation file: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to save documentation file", e);
             throw e;
         }
     }
 
-    /**
-     * Generates a Markdown documentation file for the configuration.
-     * This file contains all comments and field information from the POJO.
-     * 
-     * @param pojoInstance The instance to document
-     * @param writer The PrintWriter to write the documentation to
-     */
     private void generateDocumentationFile(T pojoInstance, PrintWriter writer) {
         String configFileName = filePath.getFileName().toString();
 
@@ -162,13 +134,13 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
         // Process each field
         for (Field field : fields) {
-            // Skip static and transient fields
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
+            if (shouldSkipField(field)) {
                 continue;
             }
 
             Key keyAnnotation = field.getAnnotation(Key.class);
-            if (keyAnnotation == null) continue;
+            if (keyAnnotation == null)
+                continue;
 
             String jsonKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
 
@@ -177,7 +149,8 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
                 String currentSectionHash = String.join("|", sectionAnnotation.value());
                 if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
-                    if (hasAnyDocumentedFields) writer.println();
+                    if (hasAnyDocumentedFields)
+                        writer.println();
                     writer.println("## " + String.join(" / ", sectionAnnotation.value()));
                     writer.println();
                     this.lastCommentSectionHash = currentSectionHash;
@@ -202,8 +175,7 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
                         writer.println("**Current Value:** `" + currentValue + "`  ");
                     }
                 } catch (IllegalAccessException e) {
-                    System.err.println(LOG_PREFIX + "WARNING: Could not access field " + field.getName() + 
-                            " for documentation: " + e.getMessage());
+                    LOGGER.log(Level.WARNING, "Could not access field " + field.getName() + " for documentation", e);
                 }
 
                 writer.println();
@@ -220,81 +192,27 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
 
     /**
-     * Creates a map of key-value pairs from the POJO instance for JSON serialization.
-     * 
-     * @param pojoInstance The instance to extract data from
-     * @return A map of key-value pairs representing the POJO's data
+     * Custom Jackson Annotation Introspector to support JShepherd annotations.
      */
-    private Map<String, Object> createJsonMap(T pojoInstance) {
-        Map<String, Object> jsonMap = new LinkedHashMap<>();
-
-        // Get all fields from the class hierarchy
-        List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
-
-        // Process each field
-        for (Field field : fields) {
-            // Skip static and transient fields
-            if (Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers())) {
-                continue;
-            }
-
-            Key keyAnnotation = field.getAnnotation(Key.class);
-            if (keyAnnotation == null) continue;
-
-            String jsonKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
-
-            try {
-                field.setAccessible(true);
-                Object value = field.get(pojoInstance);
-                if (value != null) {
-                    jsonMap.put(jsonKey, value);
-                }
-            } catch (IllegalAccessException e) {
-                System.err.println(LOG_PREFIX + "ERROR: Could not access field " + field.getName() + 
-                        " during JSON map creation: " + e.getMessage());
-            }
-        }
-
-        return jsonMap;
-    }
-
-    /**
-     * Implementation of DataExtractor for JSON data.
-     * This class extracts values from a JSON map for applying to a POJO instance.
-     */
-    private static class JsonDataExtractor implements DataExtractor {
-        private final Map<String, Object> data;
-
-        /**
-         * Creates a new JsonDataExtractor with the given data map.
-         * 
-         * @param data The JSON data map
-         */
-        JsonDataExtractor(Map<String, Object> data) {
-            this.data = data;
-        }
-
-        /**
-         * Checks if the JSON data contains a value for the given key.
-         * 
-         * @param key The key to check
-         * @return true if the key exists in the data, false otherwise
-         */
+    private static class JShepherdAnnotationIntrospector extends JacksonAnnotationIntrospector {
         @Override
-        public boolean hasValue(String key) {
-            return data.containsKey(key);
+        public PropertyName findNameForSerialization(Annotated a) {
+            Key key = a.getAnnotation(Key.class);
+            if (key != null && !key.value().isEmpty()) {
+                return PropertyName.construct(key.value());
+            } else if (key != null) {
+                return super.findNameForSerialization(a);
+            }
+            return super.findNameForSerialization(a);
         }
 
-        /**
-         * Gets the value for the given key from the JSON data.
-         * 
-         * @param key The key to get the value for
-         * @param targetType The expected type of the value
-         * @return The value from the JSON data, or null if not found
-         */
         @Override
-        public Object getValue(String key, Class<?> targetType) {
-            return data.get(key);
+        public PropertyName findNameForDeserialization(Annotated a) {
+            Key key = a.getAnnotation(Key.class);
+            if (key != null && !key.value().isEmpty()) {
+                return PropertyName.construct(key.value());
+            }
+            return super.findNameForDeserialization(a);
         }
     }
 }
