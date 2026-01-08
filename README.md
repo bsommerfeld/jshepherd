@@ -1,8 +1,19 @@
 # JShepherd
 
-[![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld/core?label=Maven%20Central)](https://central.sonatype.com/artifact/de.bsommerfeld/core)
+[![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld.jshepherd/core?label=Maven%20Central)](https://central.sonatype.com/artifact/de.bsommerfeld.jshepherd/core)
 
 JShepherd is an annotation-based configuration management library for Java that supports modern hierarchical formats (YAML, JSON, TOML) with automatic format detection based on file extensions. It intelligently merges configuration changes — adding new fields and removing obsolete ones without overwriting user-modified values.
+
+## Key Features
+
+* **🎯 Automatic Format Detection** — File extension determines persistence format
+* **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@Section`
+* **🔄 Smart Config Merging** — Automatically adds new keys and removes obsolete ones without losing user-modified values
+* **💾 Live Reload & Persistence** — Call `config.reload()` or `config.save()` at any time
+* **📚 Documentation Generation** — Auto-generated `.md` docs for formats without comment support (JSON)
+* **🔧 Type Safety** — Compile-time checking with self-referential generics
+* **⚡ Zero Configuration** — Sensible defaults out of the box
+* **🧩 Modular** — Include only the format modules you need
 
 ## Installation
 
@@ -14,26 +25,26 @@ JShepherd is available on **Maven Central**. Check the badge above for the lates
 <dependencies>
     <!-- Core module (required) -->
     <dependency>
-        <groupId>de.bsommerfeld</groupId>
+        <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>core</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.1</version>
     </dependency>
 
     <!-- Format-specific modules (include only what you need) -->
     <dependency>
-        <groupId>de.bsommerfeld</groupId>
+        <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>yaml</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.1</version>
     </dependency>
     <dependency>
-        <groupId>de.bsommerfeld</groupId>
+        <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>json</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.1</version>
     </dependency>
     <dependency>
-        <groupId>de.bsommerfeld</groupId>
+        <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>toml</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.1</version>
     </dependency>
 </dependencies>
 ```
@@ -43,12 +54,12 @@ JShepherd is available on **Maven Central**. Check the badge above for the lates
 ```groovy
 dependencies {
     // Core module (required)
-    implementation 'de.bsommerfeld:core:4.0.0'
+    implementation 'de.bsommerfeld.jshepherd:core:4.0.1'
 
     // Format-specific modules (include only what you need)
-    implementation 'de.bsommerfeld:yaml:4.0.0'
-    implementation 'de.bsommerfeld:json:4.0.0'
-    implementation 'de.bsommerfeld:toml:4.0.0'
+    implementation 'de.bsommerfeld.jshepherd:yaml:4.0.1'
+    implementation 'de.bsommerfeld.jshepherd:json:4.0.1'
+    implementation 'de.bsommerfeld.jshepherd:toml:4.0.1'
 }
 ```
 
@@ -89,14 +100,14 @@ public class AppConfig extends ConfigurablePojo<AppConfig> {
 }
 ```
 
-### 2. Load and Use
+### 2. Load, Use, and Persist
 
 ```java
 Path configFile = Paths.get("config.yaml");  // or .json, .toml
 
 // Fluent Builder API (recommended)
 AppConfig config = ConfigurationLoader.from(configFile)
-    .withComments()
+    .withComments()      // Enable comment generation (default)
     .load(AppConfig::new);
 
 // Or use the static factory method
@@ -122,8 +133,6 @@ config.reload();
 
 ## Annotations
 
-### Core Annotations
-
 | Annotation                   | Target       | Purpose                           |
 |------------------------------|--------------|-----------------------------------|
 | `@Key("name")`               | Field        | Custom key name in config file    |
@@ -131,7 +140,7 @@ config.reload();
 | `@PostInject`                | Method       | Called after configuration loaded |
 | `@Section("name")`           | Field        | Nested POJO as section (all formats) |
 
-### Nested Sections with `@Section`
+## Nested Sections with `@Section`
 
 The `@Section` annotation works across all formats (YAML, TOML, JSON) to create nested configuration structures:
 
@@ -162,7 +171,7 @@ public class DatabaseSettings {
 }
 ```
 
-**Generated YAML:**
+**YAML Output:**
 
 ```yaml
 # Server Configuration
@@ -181,7 +190,7 @@ cache:
   ttl-seconds: 300
 ```
 
-**Generated TOML:**
+**TOML Output:**
 
 ```toml
 # Server Configuration
@@ -200,7 +209,7 @@ max-entries = 1000
 ttl-seconds = 300
 ```
 
-**Generated JSON:**
+**JSON Output:**
 
 ```json
 {
@@ -216,88 +225,6 @@ ttl-seconds = 300
 }
 ```
 
-> **Note:** `@Key` fields declared after `@Section` fields do NOT belong to the section — they remain at root level.
-
-## API Reference
-
-### Loading Configuration
-
-```java
-// Fluent Builder API
-AppConfig config = ConfigurationLoader.from(Paths.get("config.yaml"))
-    .withComments()      // Enable comment generation (default)
-    .load(AppConfig::new);
-
-AppConfig config = ConfigurationLoader.from(Paths.get("config.yaml"))
-    .withoutComments()   // Faster, simpler output
-    .load(AppConfig::new);
-
-// Static Factory Methods
-AppConfig config = ConfigurationLoader.load(path, AppConfig::new);
-AppConfig config = ConfigurationLoader.load(path, AppConfig::new, withComments);
-```
-
-### Instance Methods
-
-```java
-config.save();    // Persist current state to file
-config.reload();  // Reload values from file
-```
-
-## Key Features
-
-* **🎯 Automatic Format Detection** — File extension determines persistence format
-* **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@Section`
-* **🔄 Live Reload** — Call `config.reload()` to sync with external file changes
-* **💾 Simple Persistence** — Call `config.save()` to write changes
-* **� Smart Config Merging** — Automatically adds new keys and removes obsolete ones without losing user-modified values
-* **�📚 Documentation Generation** — Auto-generated docs for formats without comment support
-* **🔧 Type Safety** — Compile-time checking with self-referential generics
-* **⚡ Zero Configuration** — Sensible defaults out of the box
-* **🧩 Modular** — Include only the format modules you need
-
-## Example Output
-
-**YAML** (`config.yaml`):
-
-```yaml
-# Application Configuration
-
-# The application name
-app-name: MyApp
-
-# Server port number  
-server-port: 8080
-
-# Enable debug logging
-debug-mode: false
-```
-
-**TOML** (`config.toml`):
-
-```toml
-# Application Configuration
-
-# The application name
-app-name = "MyApp"
-
-# Server port number  
-server-port = 8080
-
-# Enable debug logging
-debug-mode = false
-```
-
-**JSON** (`config.json`):
-
-```json
-{
-  "app-name": "MyApp",
-  "server-port": 8080,
-  "debug-mode": false
-}
-```
-
-> JSON does not support comments. When `withComments()` is enabled, a `config-documentation.md` file is generated alongside the JSON file.
+> **Note:** `@Key` fields declared after `@Section` fields do NOT belong to the section — they remain at root level. JSON does not support comments; when `withComments()` is enabled, a `config-documentation.md` file is generated alongside the JSON file.
 
 ---
