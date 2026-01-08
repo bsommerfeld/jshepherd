@@ -1,7 +1,7 @@
 package de.bsommerfeld.jshepherd.yaml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
+
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import org.junit.jupiter.api.BeforeEach;
@@ -127,7 +127,6 @@ class YamlPersistenceDelegateTest {
         assertTrue(content.contains("# String value description"), "YAML should contain string comment");
         assertTrue(content.contains("# Integer value description"), "YAML should contain int comment");
         assertTrue(content.contains("# Boolean value description"), "YAML should contain boolean comment");
-        assertTrue(content.contains("# Basic Types"), "YAML should contain comment section");
 
         // Check for values - The saveWithComments method in YamlPersistenceDelegate
         // uses the @Key annotation values
@@ -414,7 +413,6 @@ class YamlPersistenceDelegateTest {
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
         @Key("string-value")
         @Comment("String value description")
-        @CommentSection("Basic Types")
         private String stringValue = "default";
 
         @Key("int-value")
@@ -435,7 +433,6 @@ class YamlPersistenceDelegateTest {
 
         @Key("string-list")
         @Comment("List of strings")
-        @CommentSection("Collection Types")
         private List<String> stringList = new ArrayList<>();
 
         @Key("int-list")
@@ -452,7 +449,6 @@ class YamlPersistenceDelegateTest {
 
         @Key("special-chars")
         @Comment("String with special characters")
-        @CommentSection("Special Cases")
         private String specialChars = "";
 
         @Key("empty-string")

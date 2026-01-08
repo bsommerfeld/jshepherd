@@ -1,6 +1,8 @@
 package de.bsommerfeld.jshepherd.yaml;
 
+import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
@@ -143,61 +145,24 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
     try (PrintWriter writer = new PrintWriter(
         Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
-      CommentContext commentContext = new CommentContext();
 
       writeClassComments(writer, pojoInstance);
 
-      List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
-
-      for (int fieldIdx = 0; fieldIdx < fields.size(); fieldIdx++) {
-        Field field = fields.get(fieldIdx);
-        if (shouldSkipField(field)) {
-          continue;
+      // Write non-section fields first (root level)
+      List<Field> rootFields = getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class);
+      for (int i = 0; i < rootFields.size(); i++) {
+        Field field = rootFields.get(i);
+        writeFieldWithComments(writer, field, pojoInstance, "");
+        if (i < rootFields.size() - 1) {
+          writer.println();
         }
-        field.setAccessible(true);
-        Key keyAnnotation = field.getAnnotation(Key.class);
-        if (keyAnnotation == null)
-          continue;
+      }
 
-        String yamlKey = resolveKey(field);
-
-        writeSectionComments(writer, field, commentContext);
-        writeFieldComments(writer, field);
-
-        writer.print(yamlKey + ":");
-        Object value;
-        try {
-          value = field.get(pojoInstance);
-        } catch (IllegalAccessException e) {
-          LOGGER.log(Level.SEVERE, "Could not access field " + field.getName(), e);
-          continue;
-        }
-
-        if (value == null) {
-          writer.println(" null");
-        } else {
-          String valueAsYaml = this.valueDumper.dump(value);
-
-          if (valueAsYaml.endsWith(System.lineSeparator())) {
-            valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - System.lineSeparator().length());
-          }
-
-          boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map)
-              && !valueAsYaml.contains(System.lineSeparator());
-          if (value instanceof List && ((List<?>) value).isEmpty())
-            isScalarOrFlowCollection = true;
-          if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
-            isScalarOrFlowCollection = true;
-
-          if (isScalarOrFlowCollection) {
-            writer.println(" " + valueAsYaml.trim());
-          } else {
-            writer.println();
-            valueAsYaml.lines().forEach(line -> writer.println("  " + line));
-          }
-        }
-
-        writeBlankLineIfNeeded(writer, fields, fieldIdx);
+      // Write sections
+      List<Field> sectionFields = getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class);
+      for (Field sectionField : sectionFields) {
+        writer.println();
+        writeSectionWithComments(writer, sectionField, pojoInstance);
       }
     } catch (IOException e) {
       LOGGER.log(Level.SEVERE, "Failed to save YAML file with comments", e);
@@ -205,16 +170,86 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
   }
 
-  private void writeBlankLineIfNeeded(PrintWriter writer, List<Field> fields, int currentIdx) {
-    if (currentIdx < fields.size() - 1) {
-      for (int k = currentIdx + 1; k < fields.size(); k++) {
-        Field nextField = fields.get(k);
-        if (shouldSkipField(nextField))
-          continue;
-        if (nextField.getAnnotation(Key.class) != null) {
-          writer.println();
-          break;
-        }
+  private void writeFieldWithComments(PrintWriter writer, Field field, Object instance,
+      String indent) throws IOException {
+    field.setAccessible(true);
+    String yamlKey = resolveKey(field);
+
+    writeIndentedFieldComments(writer, field, indent);
+
+    Object value;
+    try {
+      value = field.get(instance);
+    } catch (IllegalAccessException e) {
+      LOGGER.log(Level.SEVERE, "Could not access field " + field.getName(), e);
+      return;
+    }
+
+    writer.print(indent + yamlKey + ":");
+
+    if (value == null) {
+      writer.println(" null");
+    } else {
+      String valueAsYaml = this.valueDumper.dump(value);
+
+      if (valueAsYaml.endsWith(System.lineSeparator())) {
+        valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - System.lineSeparator().length());
+      }
+
+      boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map)
+          && !valueAsYaml.contains(System.lineSeparator());
+      if (value instanceof List && ((List<?>) value).isEmpty())
+        isScalarOrFlowCollection = true;
+      if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
+        isScalarOrFlowCollection = true;
+
+      if (isScalarOrFlowCollection) {
+        writer.println(" " + valueAsYaml.trim());
+      } else {
+        writer.println();
+        String nestedIndent = indent + "  ";
+        valueAsYaml.lines().forEach(line -> writer.println(nestedIndent + line));
+      }
+    }
+  }
+
+  private void writeSectionWithComments(PrintWriter writer, Field sectionField, Object parentInstance)
+      throws IOException {
+    sectionField.setAccessible(true);
+    Object sectionPojo;
+    try {
+      sectionPojo = sectionField.get(parentInstance);
+    } catch (IllegalAccessException e) {
+      LOGGER.log(Level.SEVERE, "Could not access section field " + sectionField.getName(), e);
+      return;
+    }
+
+    if (sectionPojo == null) {
+      return;
+    }
+
+    String sectionName = resolveSectionName(sectionField);
+
+    // Write section comments (from @Comment on section field)
+    writeFieldComments(writer, sectionField);
+    writer.println(sectionName + ":");
+
+    // Write nested fields with indent
+    List<Field> nestedFields = getSectionPojoFields(sectionPojo);
+    for (int i = 0; i < nestedFields.size(); i++) {
+      Field nestedField = nestedFields.get(i);
+      writeFieldWithComments(writer, nestedField, sectionPojo, "  ");
+      if (i < nestedFields.size() - 1) {
+        writer.println();
+      }
+    }
+  }
+
+  private void writeIndentedFieldComments(PrintWriter writer, Field field, String indent) {
+    Comment fieldComment = field.getAnnotation(Comment.class);
+    if (fieldComment != null) {
+      for (String commentLine : fieldComment.value()) {
+        writer.println(indent + "# " + commentLine);
       }
     }
   }
@@ -271,22 +306,31 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
     private static String resolveName(Property delegate, Class<?> beanClass) {
       String propName = delegate.getName();
-      Key key = delegate.getAnnotation(Key.class);
 
-      // Fallback
-      if (key == null) {
-        List<Field> fields = ClassUtils.getAllFieldsInHierarchy(beanClass, Object.class);
-        for (Field f : fields) {
-          if (f.getName().equals(propName)) {
-            key = f.getAnnotation(Key.class);
-            break;
-          }
+      // Find corresponding field for annotation lookup
+      Field field = null;
+      List<Field> fields = ClassUtils.getAllFieldsInHierarchy(beanClass, Object.class);
+      for (Field f : fields) {
+        if (f.getName().equals(propName)) {
+          field = f;
+          break;
         }
       }
 
-      if (key != null && !key.value().isEmpty()) {
-        return key.value();
+      if (field != null) {
+        // Check @Section first (takes precedence for nested POJOs)
+        Section section = field.getAnnotation(Section.class);
+        if (section != null && !section.value().isEmpty()) {
+          return section.value();
+        }
+
+        // Then check @Key
+        Key key = field.getAnnotation(Key.class);
+        if (key != null && !key.value().isEmpty()) {
+          return key.value();
+        }
       }
+
       return delegate.getName();
     }
 
