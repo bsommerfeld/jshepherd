@@ -2,6 +2,7 @@ package de.bsommerfeld.jshepherd.core;
 
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.annotation.PostInject;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -108,6 +109,48 @@ class AbstractPersistenceDelegateTest {
         assertEquals(300.5f, floatFromDouble);
     }
 
+    @Test
+    void isSection_shouldIdentifySectionFields() throws NoSuchFieldException {
+        // Arrange
+        java.lang.reflect.Field sectionField = ConfigWithSection.class.getDeclaredField("nested");
+        java.lang.reflect.Field regularField = ConfigWithSection.class.getDeclaredField("name");
+
+        // Act & Assert
+        assertTrue(delegate.testIsSection(sectionField), "@Section field should be identified");
+        assertFalse(delegate.testIsSection(regularField), "Regular @Key field should not be a section");
+    }
+
+    @Test
+    void resolveSectionName_shouldReturnExplicitNameOrFallback() throws NoSuchFieldException {
+        // Arrange
+        java.lang.reflect.Field explicitSection = ConfigWithSection.class.getDeclaredField("nested");
+        java.lang.reflect.Field keyFallback = ConfigWithSection.class.getDeclaredField("defaultNameSection");
+
+        // Act & Assert
+        assertEquals("explicit-name", delegate.testResolveSectionName(explicitSection));
+        assertEquals("default-name-section", delegate.testResolveSectionName(keyFallback),
+                "Should fall back to @Key value");
+    }
+
+    @Test
+    void getNonSectionFields_shouldReturnOnlyKeyFields() {
+        // Act
+        var fields = delegate.testGetNonSectionFields(ConfigWithSection.class, ConfigurablePojo.class);
+
+        // Assert
+        assertEquals(1, fields.size());
+        assertEquals("name", fields.get(0).getName());
+    }
+
+    @Test
+    void getSectionFields_shouldReturnOnlySectionFields() {
+        // Act
+        var fields = delegate.testGetSectionFields(ConfigWithSection.class, ConfigurablePojo.class);
+
+        // Assert
+        assertEquals(2, fields.size());
+    }
+
     // Test implementation of ConfigurablePojo
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
         @Key
@@ -122,6 +165,24 @@ class AbstractPersistenceDelegateTest {
         private void onPostInject() {
             postInjectCalled = true;
         }
+    }
+
+    // Config with @Section fields for testing
+    private static class ConfigWithSection extends ConfigurablePojo<ConfigWithSection> {
+        @Key("name")
+        private String name = "test";
+
+        @Section("explicit-name")
+        private NestedSettings nested = new NestedSettings();
+
+        @Key("default-name-section")
+        @Section
+        private NestedSettings defaultNameSection = new NestedSettings();
+    }
+
+    private static class NestedSettings {
+        @Key("value")
+        private String value = "nested";
     }
 
     // Test implementation of AbstractPersistenceDelegate
@@ -158,6 +219,23 @@ class AbstractPersistenceDelegateTest {
         // Use the protected method for testing
         public Object testConvertNumericIfNeeded(Object value, Class<?> targetType) {
             return convertNumericIfNeeded(value, targetType);
+        }
+
+        // Section utility test helpers
+        public boolean testIsSection(java.lang.reflect.Field field) {
+            return isSection(field);
+        }
+
+        public String testResolveSectionName(java.lang.reflect.Field field) {
+            return resolveSectionName(field);
+        }
+
+        public java.util.List<java.lang.reflect.Field> testGetNonSectionFields(Class<?> clazz, Class<?> stopClass) {
+            return getNonSectionFields(clazz, stopClass);
+        }
+
+        public java.util.List<java.lang.reflect.Field> testGetSectionFields(Class<?> clazz, Class<?> stopClass) {
+            return getSectionFields(clazz, stopClass);
         }
 
         private static class TestDataExtractor implements DataExtractor {
