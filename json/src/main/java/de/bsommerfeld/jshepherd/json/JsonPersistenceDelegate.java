@@ -44,6 +44,9 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // Allow loading configs with obsolete keys that no longer exist in the POJO
+        this.objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                false);
         this.objectMapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
         this.objectMapper.setAnnotationIntrospector(new JShepherdAnnotationIntrospector());
 
