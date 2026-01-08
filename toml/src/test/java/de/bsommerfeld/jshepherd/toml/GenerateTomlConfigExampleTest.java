@@ -2,6 +2,7 @@ package de.bsommerfeld.jshepherd.toml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,8 +15,10 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * This test generates a TOML configuration file on disk so you can inspect it manually.
- * Additionally, it verifies that values can be loaded from modified TOML and that changes
+ * This test generates a TOML configuration file on disk so you can inspect it
+ * manually.
+ * Additionally, it verifies that values can be loaded from modified TOML and
+ * that changes
  * in the POJO are correctly written back to the TOML file.
  * The output is written to the toml module's target directory.
  */
@@ -103,7 +106,8 @@ class GenerateTomlConfigExampleTest {
         assertEquals("root", loaded2.database.username);
         assertFalse(loaded2.database.enabled);
 
-        // 3) Modify the POJO and save again, then assert the file contains the updated values
+        // 3) Modify the POJO and save again, then assert the file contains the updated
+        // values
         loaded2.appName = "Saved Back";
         loaded2.debug = true;
         loaded2.maxConnections = 7;
@@ -162,12 +166,12 @@ class GenerateTomlConfigExampleTest {
         List<String> tags = new ArrayList<>();
 
         @Key("thresholds")
-        @TomlSection("thresholds")
+        @Section("thresholds")
         @Comment("Threshold table with named levels")
         Map<String, Integer> thresholds = new LinkedHashMap<>();
 
         @Key("database")
-        @TomlSection
+        @Section
         @Comment("Database connection settings")
         DatabaseSection database = new DatabaseSection();
     }

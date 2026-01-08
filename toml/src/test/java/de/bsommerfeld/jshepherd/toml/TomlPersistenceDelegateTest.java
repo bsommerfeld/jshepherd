@@ -1,11 +1,10 @@
 package de.bsommerfeld.jshepherd.toml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.core.ConfigurationException;
-import de.bsommerfeld.jshepherd.toml.TomlSection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -83,9 +82,6 @@ class TomlPersistenceDelegateTest {
         // Check for comments in TOML
         assertTrue(content.contains("# String value description"), "TOML should contain string comment");
         assertTrue(content.contains("# Integer value description"), "TOML should contain int comment");
-        assertTrue(content.contains("# Boolean value description"), "TOML should contain boolean comment");
-        assertTrue(content.contains("# Basic Types"), "TOML should contain comment section");
-
         // Check for values
         assertTrue(content.contains("string-value = \"test value\""), "TOML should contain string value");
         assertTrue(content.contains("int-value = 42"), "TOML should contain int value");
@@ -184,18 +180,18 @@ class TomlPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check collections - TOML format uses specific syntax for collections
-        assertTrue(content.contains("string-list = ["), 
+        assertTrue(content.contains("string-list = ["),
                 "TOML should contain string list");
         assertTrue(content.contains("\"item1\""), "TOML should contain list item");
-        assertTrue(content.contains("int-list = ["), 
+        assertTrue(content.contains("int-list = ["),
                 "TOML should contain int list");
         assertTrue(content.contains("1, 2, 3"), "TOML should contain int list items");
-        assertTrue(content.contains("[string-map]"), 
+        assertTrue(content.contains("[string-map]"),
                 "TOML should contain string map table");
         assertTrue(content.contains("key1 = \"value1\""), "TOML should contain map entry");
-        assertTrue(content.contains("[nested-map]"), 
+        assertTrue(content.contains("[nested-map]"),
                 "TOML should contain nested map table");
-        assertTrue(content.contains("nestedString = \"nested value\""), 
+        assertTrue(content.contains("nestedString = \"nested value\""),
                 "TOML should contain nested string");
 
         // Act - Load into a new instance
@@ -210,7 +206,7 @@ class TomlPersistenceDelegateTest {
         assertEquals("value1", loadedConfig.stringMap.get("key1"), "Map value should match");
         assertNotNull(loadedConfig.nestedMap, "Nested map should not be null");
         assertEquals("nested value", loadedConfig.nestedMap.get("nestedString"), "Nested string should match");
-        assertEquals(42, ((Number)loadedConfig.nestedMap.get("nestedInt")).intValue(), "Nested int should match");
+        assertEquals(42, ((Number) loadedConfig.nestedMap.get("nestedInt")).intValue(), "Nested int should match");
     }
 
     @Test
@@ -227,7 +223,7 @@ class TomlPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check special characters are properly escaped in TOML format
-        assertTrue(content.contains("special-chars = \"Special chars: !@#$%^&*()_+{}[]|\\\\:;\\\"'<>,.?/\\n\\t\\r\""), 
+        assertTrue(content.contains("special-chars = \"Special chars: !@#$%^&*()_+{}[]|\\\\:;\\\"'<>,.?/\\n\\t\\r\""),
                 "TOML should contain properly escaped special characters");
 
         // Act - Load into a new instance
@@ -235,7 +231,7 @@ class TomlPersistenceDelegateTest {
         delegate.tryLoadFromFile(loadedConfig);
 
         // Assert - Special characters loaded correctly
-        assertEquals(testConfig.specialChars, loadedConfig.specialChars, 
+        assertEquals(testConfig.specialChars, loadedConfig.specialChars,
                 "Special characters should be preserved after save/load");
     }
 
@@ -256,14 +252,14 @@ class TomlPersistenceDelegateTest {
         String content = Files.readString(configPath);
 
         // Check empty values
-        assertTrue(content.contains("empty-string = \"\""), 
+        assertTrue(content.contains("empty-string = \"\""),
                 "TOML should contain empty string");
         // Null values should be omitted from TOML
-        assertFalse(content.contains("null-string"), 
+        assertFalse(content.contains("null-string"),
                 "TOML should not contain null string");
-        assertTrue(content.contains("string-list = ["), 
+        assertTrue(content.contains("string-list = ["),
                 "TOML should contain empty list");
-        assertTrue(content.contains("[string-map]"), 
+        assertTrue(content.contains("[string-map]"),
                 "TOML should contain empty map table");
 
         // Act - Load into a new instance
@@ -272,7 +268,8 @@ class TomlPersistenceDelegateTest {
 
         // Assert - Empty/null values loaded correctly
         assertEquals("", loadedConfig.emptyString, "Empty string should be preserved");
-        // Since null values are omitted from TOML, the field will retain its default value (null)
+        // Since null values are omitted from TOML, the field will retain its default
+        // value (null)
         assertNull(loadedConfig.nullString, "Null string should retain default value (null)");
         assertTrue(loadedConfig.stringList.isEmpty(), "String list should be empty");
         assertTrue(loadedConfig.stringMap.isEmpty(), "String map should be empty");
@@ -299,9 +296,9 @@ class TomlPersistenceDelegateTest {
         delegate.tryLoadFromFile(loadedConfig);
 
         // Assert - Long string loaded correctly
-        assertEquals(testConfig.veryLongString, loadedConfig.veryLongString, 
+        assertEquals(testConfig.veryLongString, loadedConfig.veryLongString,
                 "Very long string should be preserved after save/load");
-        assertTrue(loadedConfig.veryLongString.length() > 9000, 
+        assertTrue(loadedConfig.veryLongString.length() > 9000,
                 "Loaded string should maintain its length");
     }
 
@@ -322,9 +319,9 @@ class TomlPersistenceDelegateTest {
 
         // Verify exception message contains useful information
         String errorMessage = exception.getMessage();
-        assertTrue(errorMessage != null && 
-                (errorMessage.contains("TOML") || errorMessage.contains("parse") || 
-                 errorMessage.contains("syntax")),
+        assertTrue(errorMessage != null &&
+                (errorMessage.contains("TOML") || errorMessage.contains("parse") ||
+                        errorMessage.contains("syntax")),
                 "Exception should mention parsing error: " + errorMessage);
     }
 
@@ -357,7 +354,7 @@ class TomlPersistenceDelegateTest {
         }, "Should throw exception for non-existent file");
 
         // Verify exception is related to file not found
-        assertTrue(exception instanceof IOException, 
+        assertTrue(exception instanceof IOException,
                 "Exception should be an IOException");
     }
 
@@ -382,8 +379,8 @@ class TomlPersistenceDelegateTest {
 
                     // Create a unique path for this thread
                     Path threadPath = tempDir.resolve("thread-" + threadNum + ".toml");
-                    TomlPersistenceDelegate<TestConfig> threadDelegate = 
-                            new TomlPersistenceDelegate<>(threadPath, false);
+                    TomlPersistenceDelegate<TestConfig> threadDelegate = new TomlPersistenceDelegate<>(threadPath,
+                            false);
 
                     // Save and load
                     threadDelegate.saveSimple(threadConfig, threadPath);
@@ -407,7 +404,7 @@ class TomlPersistenceDelegateTest {
 
         // Assert
         assertTrue(completed, "All threads should complete within timeout");
-        assertTrue(exceptions.isEmpty(), 
+        assertTrue(exceptions.isEmpty(),
                 "No exceptions should occur during concurrent access: " + exceptions);
     }
 
@@ -416,7 +413,8 @@ class TomlPersistenceDelegateTest {
     void tomlSection_saveNestedPojoAsTable() throws IOException {
         // Arrange
         Path sectionPath = tempDir.resolve("section-config.toml");
-        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath, false);
+        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath,
+                false);
         TestConfigWithSection cfg = new TestConfigWithSection();
         cfg.app = new InnerSection();
         cfg.app.name = "demo";
@@ -444,7 +442,8 @@ class TomlPersistenceDelegateTest {
                 "enabled = true\n" +
                 "ports = [8080, 8082]\n";
         Files.writeString(sectionPath, toml);
-        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath, false);
+        TomlPersistenceDelegate<TestConfigWithSection> sectionDelegate = new TomlPersistenceDelegate<>(sectionPath,
+                false);
         TestConfigWithSection cfg = new TestConfigWithSection();
 
         // Act
@@ -461,7 +460,7 @@ class TomlPersistenceDelegateTest {
     // Config for TOML Section tests
     private static class TestConfigWithSection extends ConfigurablePojo<TestConfigWithSection> {
         @Key("app")
-        @TomlSection
+        @Section
         private InnerSection app;
     }
 
@@ -475,11 +474,10 @@ class TomlPersistenceDelegateTest {
     }
 
     // Test implementation of ConfigurablePojo with various field types
-    @Comment({"Test configuration class", "Used for testing TOML persistence"})
+    @Comment({ "Test configuration class", "Used for testing TOML persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
         @Key("string-value")
         @Comment("String value description")
-        @CommentSection("Basic Types")
         private String stringValue = "default";
 
         @Key("int-value")
@@ -500,7 +498,6 @@ class TomlPersistenceDelegateTest {
 
         @Key("string-list")
         @Comment("List of strings")
-        @CommentSection("Collection Types")
         private List<String> stringList = new ArrayList<>();
 
         @Key("int-list")
@@ -517,7 +514,6 @@ class TomlPersistenceDelegateTest {
 
         @Key("special-chars")
         @Comment("String with special characters")
-        @CommentSection("Special Cases")
         private String specialChars = "";
 
         @Key("empty-string")

@@ -2,6 +2,7 @@ package de.bsommerfeld.jshepherd.toml;
 
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.Key;
+import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
@@ -35,6 +36,25 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
   TomlPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
     super(filePath, useComplexSaveWithComments);
+  }
+
+  /**
+   * Checks if a field is a section (annotated with @Section).
+   */
+  private boolean isSectionField(Field field) {
+    return field.getAnnotation(Section.class) != null;
+  }
+
+  /**
+   * Gets the section/table name from @Section annotation.
+   * Falls back to @Key value or field name.
+   */
+  private String getSectionTableName(Field field) {
+    Section section = field.getAnnotation(Section.class);
+    if (section != null && !section.value().isEmpty()) {
+      return section.value();
+    }
+    return resolveKey(field);
   }
 
   @Override
@@ -82,9 +102,8 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   protected void saveWithComments(T pojoInstance, Path targetPath) throws IOException {
     try (PrintWriter writer = new PrintWriter(
         Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
-      CommentContext commentContext = new CommentContext();
       writeClassComments(writer, pojoInstance);
-      writeSimpleFieldsWithComments(writer, pojoInstance, commentContext);
+      writeSimpleFieldsWithComments(writer, pojoInstance);
       writeTableFieldsWithComments(writer, pojoInstance);
       writeAnnotatedSectionFieldsWithComments(writer, pojoInstance);
     } catch (IOException e) {
@@ -99,7 +118,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
       if (shouldSkipField(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
-      if (keyAnnotation == null || field.getAnnotation(TomlSection.class) != null)
+      if (keyAnnotation == null || isSectionField(field))
         continue;
 
       try {
@@ -123,7 +142,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
       if (shouldSkipField(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
-      if (keyAnnotation == null || field.getAnnotation(TomlSection.class) != null)
+      if (keyAnnotation == null || isSectionField(field))
         continue;
 
       try {
@@ -145,14 +164,14 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
   }
 
-  private void writeSimpleFieldsWithComments(PrintWriter writer, T pojoInstance, CommentContext commentContext) {
+  private void writeSimpleFieldsWithComments(PrintWriter writer, T pojoInstance) {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     for (int i = 0; i < fields.size(); i++) {
       Field field = fields.get(i);
       if (shouldSkipField(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
-      if (keyAnnotation == null || field.getAnnotation(TomlSection.class) != null)
+      if (keyAnnotation == null || isSectionField(field))
         continue;
 
       try {
@@ -161,7 +180,6 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         if (value != null && !(value instanceof Map)) {
           String tomlKey = resolveKey(field);
 
-          writeSectionComments(writer, field, commentContext);
           writeFieldComments(writer, field);
           writeTomlValue(writer, tomlKey, value);
 
@@ -171,7 +189,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             Field next = fields.get(k);
             if (shouldSkipField(next) || next.getAnnotation(Key.class) == null)
               continue;
-            if (next.getAnnotation(TomlSection.class) != null)
+            if (isSectionField(next))
               break;
             try {
               next.setAccessible(true);
@@ -200,7 +218,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
       if (shouldSkipField(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
-      if (keyAnnotation == null || field.getAnnotation(TomlSection.class) != null)
+      if (keyAnnotation == null || isSectionField(field))
         continue;
 
       try {
@@ -229,16 +247,13 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     for (Field field : fields) {
       if (shouldSkipField(field))
         continue;
-      Key keyAnnotation = field.getAnnotation(Key.class);
-      TomlSection section = field.getAnnotation(TomlSection.class);
-      if (keyAnnotation == null || section == null)
+      if (!isSectionField(field))
         continue;
 
       try {
         field.setAccessible(true);
         Object value = field.get(pojoInstance);
-        String tableName = !section.value().isEmpty() ? section.value()
-            : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+        String tableName = getSectionTableName(field);
         if (firstTable) {
           writer.println();
           firstTable = false;
@@ -263,16 +278,13 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     for (Field field : fields) {
       if (shouldSkipField(field))
         continue;
-      Key keyAnnotation = field.getAnnotation(Key.class);
-      TomlSection section = field.getAnnotation(TomlSection.class);
-      if (keyAnnotation == null || section == null)
+      if (!isSectionField(field))
         continue;
 
       try {
         field.setAccessible(true);
         Object value = field.get(pojoInstance);
-        String tableName = !section.value().isEmpty() ? section.value()
-            : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+        String tableName = getSectionTableName(field);
         if (firstTable) {
           writer.println();
           firstTable = false;
@@ -450,12 +462,10 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     for (Field field : fields) {
       if (shouldSkipField(field))
         continue;
-      Key keyAnnotation = field.getAnnotation(Key.class);
-      TomlSection section = field.getAnnotation(TomlSection.class);
-      if (keyAnnotation == null || section == null)
+      if (!isSectionField(field))
         continue;
-      String tableKey = !section.value().isEmpty() ? section.value()
-          : (keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value());
+
+      String tableKey = getSectionTableName(field);
       if (!tomlResult.contains(tableKey))
         continue;
 
