@@ -157,6 +157,58 @@
                         <minimizeJar>false</minimizeJar>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.0</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.6.3</version>
+                    <configuration>
+                        <doclint>none</doclint>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.1.0</version>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>sign</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.6.0</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>central</publishingServerId>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -169,118 +221,26 @@
     </build>
 
     <profiles>
+        <!-- Maven Central Release Profile: activate with -Prelease -->
         <profile>
-            <id>shade-json</id>
-            <activation>
-                <file>
-                    <exists>src/main/java</exists>
-                </file>
-                <property>
-                    <name>shade.jackson</name>
-                    <value>true</value>
-                </property>
-            </activation>
+            <id>release</id>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>shade</goal>
-                                </goals>
-                                <configuration>
-                                    <relocations>
-                                        <relocation>
-                                            <pattern>com.fasterxml.jackson</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.jackson</shadedPattern>
-                                        </relocation>
-                                        <relocation>
-                                            <pattern>com.google.auto.service</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.autoservice</shadedPattern>
-                                        </relocation>
-                                    </relocations>
-                                </configuration>
-                            </execution>
-                        </executions>
+                        <artifactId>maven-source-plugin</artifactId>
                     </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>shade-yaml</id>
-            <activation>
-                <property>
-                    <name>shade.snakeyaml</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <build>
-                <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>shade</goal>
-                                </goals>
-                                <configuration>
-                                    <relocations>
-                                        <relocation>
-                                            <pattern>org.yaml.snakeyaml</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.snakeyaml</shadedPattern>
-                                        </relocation>
-                                        <relocation>
-                                            <pattern>com.google.auto.service</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.autoservice</shadedPattern>
-                                        </relocation>
-                                    </relocations>
-                                </configuration>
-                            </execution>
-                        </executions>
+                        <artifactId>maven-javadoc-plugin</artifactId>
                     </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>shade-toml</id>
-            <activation>
-                <property>
-                    <name>shade.toml</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <build>
-                <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>shade</goal>
-                                </goals>
-                                <configuration>
-                                    <relocations>
-                                        <relocation>
-                                            <pattern>com.moandjiezana.toml</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.toml</shadedPattern>
-                                        </relocation>
-                                        <relocation>
-                                            <pattern>com.google.auto.service</pattern>
-                                            <shadedPattern>de.bsommerfeld.jshepherd.autoservice</shadedPattern>
-                                        </relocation>
-                                    </relocations>
-                                </configuration>
-                            </execution>
-                        </executions>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
                     </plugin>
                 </plugins>
             </build>
