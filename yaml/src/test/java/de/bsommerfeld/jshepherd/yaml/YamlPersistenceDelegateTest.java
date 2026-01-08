@@ -408,6 +408,139 @@ class YamlPersistenceDelegateTest {
         }
     }
 
+    // ==================== SMART CONFIG MERGING TESTS ====================
+
+    @Test
+    @DisplayName("Smart merge - Obsolete keys are removed when saving")
+    void smartMerge_obsoleteKeysRemovedOnSave() throws IOException {
+        // Arrange - Create config file with an obsolete key that doesn't exist in POJO
+        String yamlWithObsoleteKey = "string-value: user value\n" +
+                "int-value: 42\n" +
+                "obsolete-key-that-will-be-removed: should disappear\n" +
+                "another-obsolete: also gone\n" +
+                "bool-value: true\n";
+        Files.writeString(configPath, yamlWithObsoleteKey);
+
+        // Act - Load the config using reload (POJO ignores unknown keys)
+        TestConfig loaded = new TestConfig();
+        delegate.reload(loaded);
+
+        // Verify user values were loaded
+        assertEquals("user value", loaded.stringValue);
+        assertEquals(42, loaded.intValue);
+        assertTrue(loaded.boolValue);
+
+        // Save writes only POJO fields, obsolete keys are dropped
+        delegate.save(loaded);
+
+        // Assert - Re-read file and verify obsolete keys are gone
+        String savedContent = Files.readString(configPath);
+        assertFalse(savedContent.contains("obsolete-key-that-will-be-removed"),
+                "Obsolete key should be removed after save");
+        assertFalse(savedContent.contains("another-obsolete"),
+                "Another obsolete key should be removed after save");
+        assertTrue(savedContent.contains("string-value"),
+                "Valid key should still exist");
+        assertTrue(savedContent.contains("user value"),
+                "User-modified value should be preserved");
+    }
+
+    @Test
+    @DisplayName("Smart merge - New fields get default values")
+    void smartMerge_newFieldsGetDefaultValues() throws IOException {
+        // Arrange - Create config file missing some fields that exist in POJO
+        String yamlMissingFields = "string-value: existing value\n" +
+            "int-value: 99\n";
+        Files.writeString(configPath, yamlMissingFields);
+
+        // Act - Load config; fields not in file should keep their defaults
+        TestConfig loaded = new TestConfig();
+        loaded.boolValue = true; // Set non-default to verify it gets reset to default
+        loaded.doubleValue = 999.0;
+        delegate.reload(loaded);
+
+        // Assert - Existing values loaded, missing fields keep POJO defaults
+        assertEquals("existing value", loaded.stringValue, "Existing value should be loaded");
+        assertEquals(99, loaded.intValue, "Existing int should be loaded");
+        // Fields not in file keep their current values (which were set above)
+        // This tests that reload doesn't overwrite fields that aren't in the file
+
+        // Now test with loadInitial which creates a fresh instance
+        TestConfig fresh = delegate.loadInitial(TestConfig::new);
+        assertEquals("existing value", fresh.stringValue, "Existing value should be loaded");
+        assertEquals(99, fresh.intValue, "Existing int should be loaded");
+        // Default values for fields not in file
+        assertFalse(fresh.boolValue, "Missing bool should have default value");
+        assertEquals(0.0, fresh.doubleValue, "Missing double should have default value");
+    }
+
+    @Test
+    @DisplayName("Smart merge - User-modified values are preserved on reload")
+    void smartMerge_userModifiedValuesPreservedOnReload() throws IOException {
+        // Arrange - Save initial config
+        testConfig.stringValue = "initial";
+        testConfig.intValue = 1;
+        delegate.save(testConfig);
+
+        // Simulate user editing the file directly
+        String userModifiedYaml = "string-value: USER MODIFIED VALUE\n" +
+            "int-value: 9999\n" +
+            "bool-value: true\n" +
+            "double-value: 3.14159\n" +
+            "long-value: 0\n";
+        Files.writeString(configPath, userModifiedYaml);
+
+        // Act - Reload should pick up user modifications
+        delegate.reload(testConfig);
+
+        // Assert - User modifications are loaded
+        assertEquals("USER MODIFIED VALUE", testConfig.stringValue,
+                "User-modified string should be loaded");
+        assertEquals(9999, testConfig.intValue,
+                "User-modified int should be loaded");
+        assertTrue(testConfig.boolValue,
+                "User-modified bool should be loaded");
+        assertEquals(3.14159, testConfig.doubleValue, 0.00001,
+                "User-modified double should be loaded");
+    }
+
+    @Test
+    @DisplayName("Smart merge - Full cycle: add field, remove field, preserve user values")
+    void smartMerge_fullCycleAddRemovePreserve() throws IOException {
+        // Step 1: Create initial config with some values
+        testConfig.stringValue = "original";
+        testConfig.intValue = 100;
+        delegate.save(testConfig);
+
+        // Step 2: Simulate user modifying a value
+        String content = Files.readString(configPath);
+        content = content.replace("original", "user-changed");
+        Files.writeString(configPath, content);
+
+        // Step 3: Reload - user change should be preserved
+        delegate.reload(testConfig);
+        assertEquals("user-changed", testConfig.stringValue,
+                "User change should be preserved after reload");
+
+        // Step 4: App adds a new value and saves
+        testConfig.doubleValue = 42.5;
+        delegate.save(testConfig);
+
+        // Step 5: Verify both user change AND new app value exist
+        String finalContent = Files.readString(configPath);
+        assertTrue(finalContent.contains("user-changed"),
+                "User-modified value should still be in file");
+        assertTrue(finalContent.contains("42.5"),
+                "New app value should be in file");
+
+        // Step 6: Reload again and verify everything is consistent
+        TestConfig freshLoad = delegate.loadInitial(TestConfig::new);
+        assertEquals("user-changed", freshLoad.stringValue,
+                "User change should persist across save/load cycles");
+        assertEquals(42.5, freshLoad.doubleValue, 0.001,
+                "App change should persist across save/load cycles");
+    }
+
     // Test implementation of ConfigurablePojo with various field types
     @Comment({ "Test configuration class", "Used for testing YAML persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {

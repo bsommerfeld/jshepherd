@@ -50,7 +50,8 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
 
     JShepherdPropertyUtils propertyUtils = new JShepherdPropertyUtils();
-    propertyUtils.setSkipMissingProperties(false);
+    // Allow loading configs with obsolete keys that no longer exist in the POJO
+    propertyUtils.setSkipMissingProperties(true);
     propertyUtils.setBeanAccess(BEAN_ACCESS);
 
     DumperOptions mainDumperOptions = createDumperOptions();
