@@ -1,11 +1,10 @@
 # JShepherd
 
-JShepherd is an annotation based automatic configuration management library for Java that supports multiple formats (
-YAML, JSON, TOML, Properties) with automatic format detection based on file extensions.
+JShepherd is an annotation based automatic configuration management library for Java that supports multiple modern formats (YAML, JSON, TOML) with automatic format detection based on file extensions.
 
 ## Installation
 
-JShepherd is now modular. You need to include the core module and any format-specific modules you want to use.
+JShepherd is modular. You need to include the core module and any format-specific modules you want to use.
 
 ### Maven
 
@@ -42,11 +41,6 @@ JShepherd is now modular. You need to include the core module and any format-spe
     <artifactId>toml</artifactId>
     <version>VERSION</version>
 </dependency>
-<dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>properties</artifactId>
-    <version>VERSION</version>
-</dependency>
 </dependencies>
 ```
 
@@ -69,7 +63,6 @@ dependencies {
     implementation 'com.github.bsommerfeld.jshepherd:json:VERSION'
     implementation 'com.github.bsommerfeld.jshepherd:yaml:VERSION'
     implementation 'com.github.bsommerfeld.jshepherd:toml:VERSION'
-    implementation 'com.github.bsommerfeld.jshepherd:properties:VERSION'
 }
 ```
 
@@ -123,7 +116,7 @@ Load and use your configuration:
 public class App {
     public static void main(String[] args) {
         // File extension determines format automatically
-        Path configFile = Paths.get("config.yaml");  // or .json, .toml, .properties
+        Path configFile = Paths.get("config.yaml");  // or .json, .toml
 
         AppConfig config = ConfigurationLoader.load(configFile, AppConfig::new);
 
@@ -142,12 +135,11 @@ public class App {
 
 ## Supported Formats
 
-| Format         | Extensions      | Comments Support    | Documentation       |
-|----------------|-----------------|---------------------|---------------------|
-| **YAML**       | `.yaml`, `.yml` | ✅ Inline comments   | Native support      |
-| **JSON**       | `.json`         | ❌ No native support | Separate `.md` file |
-| **TOML**       | `.toml`         | ✅ Inline comments   | Native support      |
-| **Properties** | `.properties`   | ✅ Inline comments   | Native support      |
+| Format   | Extensions      | Comments Support     | Documentation        |
+|----------|-----------------|----------------------|----------------------|
+| **YAML** | `.yaml`, `.yml` | ✅ Inline comments   | Native support       |
+| **TOML** | `.toml`         | ✅ Inline comments   | Native support       |
+| **JSON** | `.json`         | ❌ No native support | Separate `.md` file  |
 
 ### JSON Documentation Files
 
@@ -197,6 +189,21 @@ server-port: 9090
 
 # Enable debug logging
 debug-mode: false
+```
+
+**TOML** (`config.toml`):
+
+```toml
+# My Application Configuration
+
+# The application name
+app-name = "MyApp"
+
+# Server port number  
+server-port = 9090
+
+# Enable debug logging
+debug-mode = false
 ```
 
 **JSON** (`config.json` + `config-documentation.md`):

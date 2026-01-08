@@ -11,7 +11,7 @@
 
     <name>jShepherd</name>
     <description>
-        Annotation Based Java Config Management Library Supporting JSON, TOML, YAML and Properties.
+        Annotation Based Java Config Management Library Supporting JSON, TOML and YAML.
     </description>
     <url>https://github.com/bsommerfeld/jshepherd</url>
 
@@ -44,7 +44,6 @@
         <module>core</module>
         <module>json</module>
         <module>yaml</module>
-        <module>properties</module>
         <module>toml</module>
     </modules>
 
