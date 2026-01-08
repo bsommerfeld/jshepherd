@@ -37,6 +37,9 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
     private final ObjectMapper objectMapper;
 
+    // Used for markdown documentation generation - tracks section headers
+    private String lastDocSectionHash = null;
+
     JsonPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         super(filePath, useComplexSaveWithComments);
 
@@ -126,7 +129,7 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             writer.println();
         }
 
-        this.lastCommentSectionHash = null;
+        this.lastDocSectionHash = null;
 
         // Get all fields from the class hierarchy
         List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
@@ -148,12 +151,12 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
             if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
                 String currentSectionHash = String.join("|", sectionAnnotation.value());
-                if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
+                if (!currentSectionHash.equals(this.lastDocSectionHash)) {
                     if (hasAnyDocumentedFields)
                         writer.println();
                     writer.println("## " + String.join(" / ", sectionAnnotation.value()));
                     writer.println();
-                    this.lastCommentSectionHash = currentSectionHash;
+                    this.lastDocSectionHash = currentSectionHash;
                 }
             }
 
