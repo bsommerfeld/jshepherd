@@ -1,6 +1,6 @@
 # JShepherd
 
-JShepherd is an annotation-based configuration management library for Java that supports modern hierarchical formats (YAML, JSON, TOML) with automatic format detection based on file extensions.
+JShepherd is an annotation-based configuration management library for Java that supports modern hierarchical formats (YAML, JSON, TOML) with automatic format detection based on file extensions. It intelligently merges configuration changes — adding new fields and removing obsolete ones without overwriting user-modified values.
 
 ## Installation
 
@@ -248,7 +248,8 @@ config.reload();  // Reload values from file
 * **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@Section`
 * **🔄 Live Reload** — Call `config.reload()` to sync with external file changes
 * **💾 Simple Persistence** — Call `config.save()` to write changes
-* **📚 Documentation Generation** — Auto-generated docs for formats without comment support
+* **� Smart Config Merging** — Automatically adds new keys and removes obsolete ones without losing user-modified values
+* **�📚 Documentation Generation** — Auto-generated docs for formats without comment support
 * **🔧 Type Safety** — Compile-time checking with self-referential generics
 * **⚡ Zero Configuration** — Sensible defaults out of the box
 * **🧩 Modular** — Include only the format modules you need
