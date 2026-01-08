@@ -1,10 +1,12 @@
 # JShepherd
 
+[![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld/core?label=Maven%20Central)](https://central.sonatype.com/artifact/de.bsommerfeld/core)
+
 JShepherd is an annotation-based configuration management library for Java that supports modern hierarchical formats (YAML, JSON, TOML) with automatic format detection based on file extensions. It intelligently merges configuration changes — adding new fields and removing obsolete ones without overwriting user-modified values.
 
 ## Installation
 
-JShepherd is available on **Maven Central**. Include the core module and any format-specific modules you need.
+JShepherd is available on **Maven Central**. Check the badge above for the latest version.
 
 ### Maven
 
