@@ -1,7 +1,7 @@
 # JShepherd
 
 [![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld.jshepherd/core?label=Maven%20Central)](https://central.sonatype.com/artifact/de.bsommerfeld.jshepherd/core)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Java Version](https://img.shields.io/badge/Java-21%2B-blue)](https://openjdk.org/projects/jdk/21/)
 [![Build Status](https://github.com/bsommerfeld/jshepherd/actions/workflows/maven-test.yml/badge.svg)](https://github.com/bsommerfeld/jshepherd/actions/workflows/maven-test.yml)
 
@@ -343,3 +343,4 @@ max-connections: 100   # ✅ New field with default
 > **How it works:** On `load()`, existing file values are merged into the Java object. On `save()`, only fields defined in the current Java class are written back — obsolete keys are simply not serialized.
 
 ---
+
