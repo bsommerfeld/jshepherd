@@ -1,15 +1,14 @@
 # JShepherd
 
-JShepherd is an annotation based automatic configuration management library for Java that supports multiple modern formats (YAML, JSON, TOML) with automatic format detection based on file extensions.
+JShepherd is an annotation-based configuration management library for Java that supports modern hierarchical formats (YAML, JSON, TOML) with automatic format detection based on file extensions.
 
 ## Installation
 
-JShepherd is modular. You need to include the core module and any format-specific modules you want to use.
+JShepherd is modular. Include the core module and any format-specific modules you need.
 
 ### Maven
 
 ```xml
-
 <repositories>
     <repository>
         <id>jitpack.io</id>
@@ -18,29 +17,29 @@ JShepherd is modular. You need to include the core module and any format-specifi
 </repositories>
 
 <dependencies>
-<!-- Core module (required) -->
-<dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>core</artifactId>
-    <version>VERSION</version>
-</dependency>
+    <!-- Core module (required) -->
+    <dependency>
+        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <artifactId>core</artifactId>
+        <version>VERSION</version>
+    </dependency>
 
-<!-- Format-specific modules (include only what you need) -->
-<dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>json</artifactId>
-    <version>VERSION</version>
-</dependency>
-<dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>yaml</artifactId>
-    <version>VERSION</version>
-</dependency>
-<dependency>
-    <groupId>com.github.bsommerfeld.jshepherd</groupId>
-    <artifactId>toml</artifactId>
-    <version>VERSION</version>
-</dependency>
+    <!-- Format-specific modules (include only what you need) -->
+    <dependency>
+        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <artifactId>yaml</artifactId>
+        <version>VERSION</version>
+    </dependency>
+    <dependency>
+        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <artifactId>json</artifactId>
+        <version>VERSION</version>
+    </dependency>
+    <dependency>
+        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <artifactId>toml</artifactId>
+        <version>VERSION</version>
+    </dependency>
 </dependencies>
 ```
 
@@ -60,21 +59,20 @@ dependencies {
     implementation 'com.github.bsommerfeld.jshepherd:core:VERSION'
 
     // Format-specific modules (include only what you need)
-    implementation 'com.github.bsommerfeld.jshepherd:json:VERSION'
     implementation 'com.github.bsommerfeld.jshepherd:yaml:VERSION'
+    implementation 'com.github.bsommerfeld.jshepherd:json:VERSION'
     implementation 'com.github.bsommerfeld.jshepherd:toml:VERSION'
 }
 ```
 
-Replace `VERSION` with the latest version of JShepherd.
+Replace `VERSION` with the latest release tag (e.g., `4.0.0`).
 
 ## Quick Start
 
-Define your configuration as a POJO extending `ConfigurablePojo<SelfType>`:
+### 1. Define Your Configuration
 
 ```java
-
-@Comment("My Application Configuration")
+@Comment("Application Configuration")
 public class AppConfig extends ConfigurablePojo<AppConfig> {
 
     @Key("app-name")
@@ -89,103 +87,163 @@ public class AppConfig extends ConfigurablePojo<AppConfig> {
     @Comment("Enable debug logging")
     private boolean debugMode = false;
 
-    // Constructor and getters/setters...
-    public AppConfig() {
-    }
+    public AppConfig() {}
 
     @PostInject
-    private void validateConfigValues() {
-        if (serverPort < 0)
-            throw new IllegalArgumentException("Port cannot be negative.");
+    private void validate() {
+        if (serverPort < 0) throw new IllegalArgumentException("Port cannot be negative");
     }
 
-    public String getAppName() {
-        return appName;
-    }
-
-    public void setAppName(String appName) {
-        this.appName = appName;
-    }
-    // ... other getters/setters
+    // Getters and setters...
+    public String getAppName() { return appName; }
+    public void setAppName(String appName) { this.appName = appName; }
+    public int getServerPort() { return serverPort; }
+    public void setServerPort(int serverPort) { this.serverPort = serverPort; }
 }
 ```
 
-Load and use your configuration:
+### 2. Load and Use
 
 ```java
-public class App {
-    public static void main(String[] args) {
-        // File extension determines format automatically
-        Path configFile = Paths.get("config.yaml");  // or .json, .toml
+Path configFile = Paths.get("config.yaml");  // or .json, .toml
 
-        AppConfig config = ConfigurationLoader.load(configFile, AppConfig::new);
+// Fluent Builder API (recommended)
+AppConfig config = ConfigurationLoader.from(configFile)
+    .withComments()
+    .load(AppConfig::new);
 
-        System.out.println("App: " + config.getAppName());
-        System.out.println("Port: " + config.getServerPort());
+// Or use the static factory method
+AppConfig config = ConfigurationLoader.load(configFile, AppConfig::new);
 
-        // Modify and save
-        config.setServerPort(9090);
-        config.save();
+System.out.println("App: " + config.getAppName());
 
-        // Reload from file
-        config.reload();
-    }
-}
+// Modify and persist
+config.setServerPort(9090);
+config.save();
+
+// Reload from file
+config.reload();
 ```
 
 ## Supported Formats
 
-| Format   | Extensions      | Comments Support     | Documentation        |
-|----------|-----------------|----------------------|----------------------|
-| **YAML** | `.yaml`, `.yml` | ✅ Inline comments   | Native support       |
-| **TOML** | `.toml`         | ✅ Inline comments   | Native support       |
-| **JSON** | `.json`         | ❌ No native support | Separate `.md` file  |
+| Format   | Extensions      | Comments Support     | Notes                          |
+|----------|-----------------|----------------------|--------------------------------|
+| **YAML** | `.yaml`, `.yml` | ✅ Inline comments   | Full native support            |
+| **TOML** | `.toml`         | ✅ Inline comments   | Full native support + sections |
+| **JSON** | `.json`         | ❌ No native support | Generates `.md` documentation  |
 
-### JSON Documentation Files
+## Annotations
 
-When using JSON format with comments enabled, JShepherd automatically creates a companion documentation file:
+### Core Annotations
+
+| Annotation                   | Target       | Purpose                           |
+|------------------------------|--------------|-----------------------------------|
+| `@Key("name")`               | Field        | Custom key name in config file    |
+| `@Comment("text")`           | Type, Field  | Adds comments (header or inline)  |
+| `@CommentSection("section")` | Field        | Groups related fields with header |
+| `@PostInject`                | Method       | Called after configuration loaded |
+
+### TOML-Specific Annotations
+
+| Annotation                 | Target | Purpose                              |
+|----------------------------|--------|--------------------------------------|
+| `@TomlSection`             | Field  | Marks nested POJO as TOML `[table]`  |
+| `@TomlSection("name")`     | Field  | TOML table with explicit name        |
+| `@TomlTable`               | Field  | Alias for `@TomlSection`             |
+
+### TOML Nested Sections Example
 
 ```java
-// config.json + config-documentation.md will be created
-AppConfig config = ConfigurationLoader.load(
-                Paths.get("config.json"),
-                AppConfig::new,
-                true  // Enable documentation generation
-        );
+@Comment("Server Configuration")
+public class ServerConfig extends ConfigurablePojo<ServerConfig> {
+
+    @Key("host")
+    private String host = "localhost";
+
+    @TomlSection("database")
+    private DatabaseSettings database = new DatabaseSettings();
+
+    @TomlSection("cache")
+    private CacheSettings cache = new CacheSettings();
+    
+    // ...
+}
+
+public class DatabaseSettings {
+    @Key("url")
+    private String url = "jdbc:postgresql://localhost/mydb";
+    
+    @Key("pool-size")
+    private int poolSize = 10;
+}
+```
+
+**Generated TOML:**
+
+```toml
+# Server Configuration
+
+host = "localhost"
+
+[database]
+url = "jdbc:postgresql://localhost/mydb"
+pool-size = 10
+
+[cache]
+max-entries = 1000
+ttl-seconds = 300
+```
+
+## API Reference
+
+### Loading Configuration
+
+```java
+// Fluent Builder API
+AppConfig config = ConfigurationLoader.from(Paths.get("config.yaml"))
+    .withComments()      // Enable comment generation (default)
+    .load(AppConfig::new);
+
+AppConfig config = ConfigurationLoader.from(Paths.get("config.yaml"))
+    .withoutComments()   // Faster, simpler output
+    .load(AppConfig::new);
+
+// Static Factory Methods
+AppConfig config = ConfigurationLoader.load(path, AppConfig::new);
+AppConfig config = ConfigurationLoader.load(path, AppConfig::new, withComments);
+```
+
+### Instance Methods
+
+```java
+config.save();    // Persist current state to file
+config.reload();  // Reload values from file
 ```
 
 ## Key Features
 
-* **🎯 Automatic Format Detection**: File extension determines the persistence format
-* **📝 Annotation-Driven**: Use `@Key`, `@Comment`, and `@CommentSection` for structure and documentation
-* **🔄 Live Reload**: Call `config.reload()` to update from external file changes
-* **💾 Simple Persistence**: Call `config.save()` to write changes back to file
-* **📚 Documentation Generation**: Automatic documentation files for formats without native comment support
-* **🔧 Type Safety**: Full compile-time type checking with self-referential generics
-* **⚡ Zero Configuration**: Works out of the box with sensible defaults
-* **🧩 Modular Structure**: Include only the format modules you need
-
-## Annotations
-
-| Annotation                   | Purpose                          | Example                            |
-|------------------------------|----------------------------------|------------------------------------|
-| `@Key("custom-name")`        | Custom field name in config file | Maps `serverPort` → `server-port`  |
-| `@Comment("Description")`    | Field documentation              | Adds comments above the field      |
-| `@CommentSection("Section")` | Group related fields             | Creates section headers            |
-| `@PostInject`                | Post-load initialization         | Method called after config loading |
+* **🎯 Automatic Format Detection** — File extension determines persistence format
+* **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@TomlSection`
+* **🔄 Live Reload** — Call `config.reload()` to sync with external file changes
+* **💾 Simple Persistence** — Call `config.save()` to write changes
+* **📚 Documentation Generation** — Auto-generated docs for formats without comment support
+* **🔧 Type Safety** — Compile-time checking with self-referential generics
+* **⚡ Zero Configuration** — Sensible defaults out of the box
+* **🧩 Modular** — Include only the format modules you need
 
 ## Example Output
 
 **YAML** (`config.yaml`):
 
 ```yaml
-# My Application Configuration
+# Application Configuration
 
 # The application name
 app-name: MyApp
 
 # Server port number  
-server-port: 9090
+server-port: 8080
 
 # Enable debug logging
 debug-mode: false
@@ -194,27 +252,31 @@ debug-mode: false
 **TOML** (`config.toml`):
 
 ```toml
-# My Application Configuration
+# Application Configuration
 
 # The application name
 app-name = "MyApp"
 
 # Server port number  
-server-port = 9090
+server-port = 8080
 
 # Enable debug logging
 debug-mode = false
 ```
 
-**JSON** (`config.json` + `config-documentation.md`):
+**JSON** (`config.json`):
 
 ```json
 {
   "app-name": "MyApp",
-  "server-port": 9090,
+  "server-port": 8080,
   "debug-mode": false
 }
 ```
+
+> JSON does not support comments. When `withComments()` is enabled, a `config-documentation.md` file is generated alongside the JSON file.
+
+---
 
 For detailed technical documentation, see: [Technical Documentation (German)](.docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
 
