@@ -4,41 +4,34 @@ JShepherd is an annotation-based configuration management library for Java that 
 
 ## Installation
 
-JShepherd is modular. Include the core module and any format-specific modules you need.
+JShepherd is available on **Maven Central**. Include the core module and any format-specific modules you need.
 
 ### Maven
 
 ```xml
-<repositories>
-    <repository>
-        <id>jitpack.io</id>
-        <url>https://jitpack.io</url>
-    </repository>
-</repositories>
-
 <dependencies>
     <!-- Core module (required) -->
     <dependency>
-        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <groupId>de.bsommerfeld</groupId>
         <artifactId>core</artifactId>
-        <version>VERSION</version>
+        <version>4.0.0</version>
     </dependency>
 
     <!-- Format-specific modules (include only what you need) -->
     <dependency>
-        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <groupId>de.bsommerfeld</groupId>
         <artifactId>yaml</artifactId>
-        <version>VERSION</version>
+        <version>4.0.0</version>
     </dependency>
     <dependency>
-        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <groupId>de.bsommerfeld</groupId>
         <artifactId>json</artifactId>
-        <version>VERSION</version>
+        <version>4.0.0</version>
     </dependency>
     <dependency>
-        <groupId>com.github.bsommerfeld.jshepherd</groupId>
+        <groupId>de.bsommerfeld</groupId>
         <artifactId>toml</artifactId>
-        <version>VERSION</version>
+        <version>4.0.0</version>
     </dependency>
 </dependencies>
 ```
@@ -46,26 +39,16 @@ JShepherd is modular. Include the core module and any format-specific modules yo
 ### Gradle
 
 ```groovy
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-}
-
 dependencies {
     // Core module (required)
-    implementation 'com.github.bsommerfeld.jshepherd:core:VERSION'
+    implementation 'de.bsommerfeld:core:4.0.0'
 
     // Format-specific modules (include only what you need)
-    implementation 'com.github.bsommerfeld.jshepherd:yaml:VERSION'
-    implementation 'com.github.bsommerfeld.jshepherd:json:VERSION'
-    implementation 'com.github.bsommerfeld.jshepherd:toml:VERSION'
+    implementation 'de.bsommerfeld:yaml:4.0.0'
+    implementation 'de.bsommerfeld:json:4.0.0'
+    implementation 'de.bsommerfeld:toml:4.0.0'
 }
 ```
-
-Replace `VERSION` with the latest release tag (e.g., `4.0.0`).
 
 ## Quick Start
 
