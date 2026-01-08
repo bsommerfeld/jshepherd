@@ -262,7 +262,7 @@ config.reload();  // Reload values from file
 ## Key Features
 
 * **🎯 Automatic Format Detection** — File extension determines persistence format
-* **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@TomlSection`
+* **📝 Annotation-Driven** — Declarative configuration with `@Key`, `@Comment`, `@Section`
 * **🔄 Live Reload** — Call `config.reload()` to sync with external file changes
 * **💾 Simple Persistence** — Call `config.save()` to write changes
 * **📚 Documentation Generation** — Auto-generated docs for formats without comment support
