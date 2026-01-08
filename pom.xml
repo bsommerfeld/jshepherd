@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>de.bsommerfeld</groupId>
+    <groupId>de.bsommerfeld.jshepherd</groupId>
     <artifactId>jshepherd</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
@@ -45,10 +45,11 @@
         <module>json</module>
         <module>yaml</module>
         <module>toml</module>
+        <module>integration-tests</module>
     </modules>
 
     <properties>
-        <revision>4.0.0</revision>
+        <revision>4.0.1</revision>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -57,7 +58,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>de.bsommerfeld</groupId>
+                <groupId>de.bsommerfeld.jshepherd</groupId>
                 <artifactId>core</artifactId>
                 <version>${revision}</version>
                 <scope>provided</scope>
