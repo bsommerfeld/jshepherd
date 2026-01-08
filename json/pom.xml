@@ -13,9 +13,8 @@
     <artifactId>json</artifactId>
     <version>${revision}</version>
 
-    <properties>
-        <shade.json>true</shade.json>
-    </properties>
+    <name>jShepherd JSON</name>
+    <description>JSON format support for jShepherd configuration management using Jackson.</description>
 
     <dependencies>
         <dependency>
@@ -58,4 +57,33 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.json.shared.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.auto.service</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.json.shared.autoservice</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
