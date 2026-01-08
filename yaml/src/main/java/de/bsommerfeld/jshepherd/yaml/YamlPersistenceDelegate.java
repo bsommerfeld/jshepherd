@@ -1,7 +1,5 @@
 package de.bsommerfeld.jshepherd.yaml;
 
-import de.bsommerfeld.jshepherd.annotation.Comment;
-import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
@@ -21,7 +19,6 @@ import org.yaml.snakeyaml.representer.Representer;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
-import java.io.Writer;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -130,8 +127,8 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   @Override
   protected void saveSimple(T pojoInstance, Path targetPath) throws IOException {
     initializeYamlIfNeeded((Class<T>) pojoInstance.getClass());
-    try (Writer writer = Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE,
-        StandardOpenOption.TRUNCATE_EXISTING)) {
+    try (PrintWriter writer = new PrintWriter(
+        Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
       writeClassComments(writer, pojoInstance);
       yaml.dump(pojoInstance, writer);
     } catch (IOException e) {
@@ -146,7 +143,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
     try (PrintWriter writer = new PrintWriter(
         Files.newBufferedWriter(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
-      this.lastCommentSectionHash = null;
+      CommentContext commentContext = new CommentContext();
 
       writeClassComments(writer, pojoInstance);
 
@@ -162,9 +159,9 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         if (keyAnnotation == null)
           continue;
 
-        String yamlKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+        String yamlKey = resolveKey(field);
 
-        writeSectionComments(writer, field);
+        writeSectionComments(writer, field, commentContext);
         writeFieldComments(writer, field);
 
         writer.print(yamlKey + ":");
@@ -205,38 +202,6 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     } catch (IOException e) {
       LOGGER.log(Level.SEVERE, "Failed to save YAML file with comments", e);
       throw e;
-    }
-  }
-
-  private void writeClassComments(Writer writer, T pojoInstance) throws IOException {
-    Comment classComment = pojoInstance.getClass().getAnnotation(Comment.class);
-    if (classComment != null && classComment.value().length > 0) {
-      for (String line : classComment.value()) {
-        writer.write("# " + line + System.lineSeparator());
-      }
-      writer.write(System.lineSeparator());
-    }
-  }
-
-  private void writeSectionComments(PrintWriter writer, Field field) {
-    CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
-    if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
-      String currentSectionHash = String.join("|", sectionAnnotation.value());
-      if (!currentSectionHash.equals(this.lastCommentSectionHash)) {
-        if (this.lastCommentSectionHash != null || writer.checkError())
-          writer.println();
-        for (String commentLine : sectionAnnotation.value())
-          writer.println("# " + commentLine);
-        this.lastCommentSectionHash = currentSectionHash;
-      }
-    }
-  }
-
-  private void writeFieldComments(PrintWriter writer, Field field) {
-    Comment fieldComment = field.getAnnotation(Comment.class);
-    if (fieldComment != null) {
-      for (String commentLine : fieldComment.value())
-        writer.println("# " + commentLine);
     }
   }
 
