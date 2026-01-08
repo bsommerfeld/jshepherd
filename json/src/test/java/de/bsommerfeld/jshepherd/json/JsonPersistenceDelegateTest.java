@@ -17,7 +17,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -86,169 +85,9 @@ class JsonPersistenceDelegateTest {
         assertTrue(docContent.contains("**Type:** `String`"), "Documentation should contain field type");
     }
 
-    @Test
-    @DisplayName("Save and load collections - Should handle lists and maps correctly")
-    void saveAndLoad_shouldHandleCollectionsCorrectly() throws Exception {
-        // Arrange
-        testConfig.stringList = Arrays.asList("item1", "item2", "item3");
-        testConfig.intList = Arrays.asList(1, 2, 3, 4, 5);
-
-        Map<String, String> stringMap = new HashMap<>();
-        stringMap.put("key1", "value1");
-        stringMap.put("key2", "value2");
-        testConfig.stringMap = stringMap;
-
-        Map<String, Object> nestedMap = new HashMap<>();
-        nestedMap.put("nestedString", "nested value");
-        nestedMap.put("nestedInt", 42);
-        nestedMap.put("nestedList", Arrays.asList("a", "b", "c"));
-        testConfig.nestedMap = nestedMap;
-
-        // Act - Save
-        delegate.saveSimple(testConfig, configPath);
-
-        // Assert - File exists and contains collections
-        assertTrue(Files.exists(configPath), "Config file should be created");
-        String content = Files.readString(configPath);
-
-        // Check collections
-        assertTrue(content.contains("\"string-list\" : [ \"item1\", \"item2\", \"item3\" ]"),
-                "JSON should contain string list");
-        assertTrue(content.contains("\"int-list\" : [ 1, 2, 3, 4, 5 ]"),
-                "JSON should contain int list");
-        assertTrue(content.contains("\"string-map\""), "JSON should contain string map");
-        assertTrue(content.contains("\"key1\" : \"value1\""), "JSON should contain map entries");
-        assertTrue(content.contains("\"nested-map\""), "JSON should contain nested map");
-        assertTrue(content.contains("\"nestedString\" : \"nested value\""), "JSON should contain nested string");
-        assertTrue(content.contains("\"nestedInt\" : 42"), "JSON should contain nested int");
-
-        // Act - Load into a new instance
-        TestConfig loadedConfig = new TestConfig();
-        delegate.tryLoadFromFile(loadedConfig);
-
-        // Assert - Collections loaded correctly
-        assertEquals(3, loadedConfig.stringList.size(), "String list should have 3 items");
-        assertEquals("item1", loadedConfig.stringList.get(0), "First string list item should match");
-        assertEquals(5, loadedConfig.intList.size(), "Int list should have 5 items");
-        assertEquals(2, loadedConfig.stringMap.size(), "String map should have 2 entries");
-        assertEquals("value1", loadedConfig.stringMap.get("key1"), "Map value should match");
-        assertNotNull(loadedConfig.nestedMap, "Nested map should not be null");
-        assertEquals("nested value", loadedConfig.nestedMap.get("nestedString"), "Nested string should match");
-        assertEquals(42, ((Number) loadedConfig.nestedMap.get("nestedInt")).intValue(), "Nested int should match");
-    }
-
-    @Test
-    @DisplayName("Load initial - Should create default when file does not exist")
-    void loadInitial_shouldCreateDefaultWhenFileDoesNotExist() {
-        // Arrange
-        Supplier<TestConfig> supplier = TestConfig::new;
-
-        // Act
-        TestConfig result = delegate.loadInitial(supplier);
-
-        // Assert
-        assertNotNull(result);
-        assertTrue(Files.exists(configPath), "Config file should be created");
-        assertEquals("default", result.stringValue);
-        assertEquals(0, result.intValue);
-        assertFalse(result.boolValue);
-    }
-
-    @Test
-    @DisplayName("Special characters - Should handle special characters correctly")
-    void saveAndLoad_shouldHandleSpecialCharactersCorrectly() throws Exception {
-        // Arrange
-        testConfig.specialChars = "Special chars: !@#$%^&*()_+{}[]|\\:;\"'<>,.?/\n\t\r";
-
-        // Act - Save
-        delegate.saveSimple(testConfig, configPath);
-
-        // Assert - File exists and contains escaped special characters
-        assertTrue(Files.exists(configPath), "Config file should be created");
-        String content = Files.readString(configPath);
-
-        // Check special characters are properly escaped
-        assertTrue(
-                content.contains("\"special-chars\" : \"Special chars: !@#$%^&*()_+{}[]|\\\\:;\\\"'<>,.?/\\n\\t\\r\""),
-                "JSON should contain properly escaped special characters");
-
-        // Act - Load into a new instance
-        TestConfig loadedConfig = new TestConfig();
-        delegate.tryLoadFromFile(loadedConfig);
-
-        // Assert - Special characters loaded correctly
-        assertEquals(testConfig.specialChars, loadedConfig.specialChars,
-                "Special characters should be preserved after save/load");
-    }
-
-    @Test
-    @DisplayName("Empty and null values - Should handle empty and null values correctly")
-    void saveAndLoad_shouldHandleEmptyAndNullValuesCorrectly() throws Exception {
-        // Arrange
-        testConfig.emptyString = "";
-        testConfig.nullString = null;
-        testConfig.stringList = new ArrayList<>(); // Empty list
-        testConfig.stringMap = new HashMap<>(); // Empty map
-
-        // Act - Save
-        delegate.saveSimple(testConfig, configPath);
-
-        // Assert - File exists and handles empty/null values
-        assertTrue(Files.exists(configPath), "Config file should be created");
-        String content = Files.readString(configPath);
-
-        // Check empty values
-        assertTrue(content.contains("\"empty-string\" : \"\""),
-                "JSON should contain empty string");
-        // Null values should be omitted from JSON
-        assertFalse(content.contains("\"null-string\""),
-                "JSON should not contain null string");
-        assertTrue(content.contains("\"string-list\" : [ ]"),
-                "JSON should contain empty list");
-        assertTrue(content.contains("\"string-map\" : { }"),
-                "JSON should contain empty map");
-
-        // Act - Load into a new instance
-        TestConfig loadedConfig = new TestConfig();
-        // Note: We're not setting nullString here, as it should remain the default
-        // value
-        delegate.tryLoadFromFile(loadedConfig);
-
-        // Assert - Empty/null values loaded correctly
-        assertEquals("", loadedConfig.emptyString, "Empty string should be preserved");
-        // Since null values are omitted from JSON, the field will retain its default
-        // value (null)
-        assertNull(loadedConfig.nullString, "Null string should retain default value (null)");
-        assertTrue(loadedConfig.stringList.isEmpty(), "String list should be empty");
-        assertTrue(loadedConfig.stringMap.isEmpty(), "String map should be empty");
-    }
-
-    @Test
-    @DisplayName("Very long string - Should handle very long strings correctly")
-    void saveAndLoad_shouldHandleVeryLongStringsCorrectly() throws Exception {
-        // Arrange
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 10000; i++) {
-            sb.append("Long string content ").append(i).append(" ");
-        }
-        testConfig.veryLongString = sb.toString();
-
-        // Act - Save
-        delegate.saveSimple(testConfig, configPath);
-
-        // Assert - File exists and contains long string
-        assertTrue(Files.exists(configPath), "Config file should be created");
-
-        // Act - Load into a new instance
-        TestConfig loadedConfig = new TestConfig();
-        delegate.tryLoadFromFile(loadedConfig);
-
-        // Assert - Long string loaded correctly
-        assertEquals(testConfig.veryLongString, loadedConfig.veryLongString,
-                "Very long string should be preserved after save/load");
-        assertTrue(loadedConfig.veryLongString.length() > 9000,
-                "Loaded string should maintain its length");
-    }
+    // Note: Tests for collections, loadInitial, special chars, empty/null,
+    // very long strings, and reload are now centralized in .integration-tests
+    // module
 
     @Test
     @DisplayName("Try load from file - Should load existing file")
@@ -332,38 +171,6 @@ class JsonPersistenceDelegateTest {
         // Verify exception is related to file not found
         assertTrue(exception instanceof IOException,
                 "Exception should be an IOException");
-    }
-
-    @Test
-    @DisplayName("Reload - Should update instance fields")
-    void reload_shouldUpdateInstanceFields() throws IOException {
-        // Arrange
-        String json = "{\n" +
-                "  \"string-value\" : \"updated value\",\n" +
-                "  \"int-value\" : 123,\n" +
-                "  \"bool-value\" : true,\n" +
-                "  \"double-value\" : 2.71828,\n" +
-                "  \"long-value\" : 1234567890,\n" +
-                "  \"string-list\" : [ \"reload1\", \"reload2\" ],\n" +
-                "  \"string-map\" : { \"key1\" : \"reload value\" }\n" +
-                "}";
-        Files.writeString(configPath, json);
-
-        // Act
-        delegate.reload(testConfig);
-
-        // Assert - Basic types
-        assertEquals("updated value", testConfig.stringValue, "String value should be updated");
-        assertEquals(123, testConfig.intValue, "Int value should be updated");
-        assertTrue(testConfig.boolValue, "Boolean value should be updated");
-        assertEquals(2.71828, testConfig.doubleValue, 0.00001, "Double value should be updated");
-        assertEquals(1234567890, testConfig.longValue, "Long value should be updated");
-
-        // Assert - Collections
-        assertEquals(2, testConfig.stringList.size(), "String list should have 2 items");
-        assertEquals("reload1", testConfig.stringList.get(0), "First string list item should match");
-        assertEquals(1, testConfig.stringMap.size(), "String map should have 1 entry");
-        assertEquals("reload value", testConfig.stringMap.get("key1"), "Map value should match");
     }
 
     @Test

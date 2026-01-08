@@ -21,7 +21,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -139,23 +138,6 @@ class YamlPersistenceDelegateTest {
     }
 
     @Test
-    @DisplayName("Load initial - Should create default when file does not exist")
-    void loadInitial_shouldCreateDefaultWhenFileDoesNotExist() {
-        // Arrange
-        Supplier<TestConfig> supplier = TestConfig::new;
-
-        // Act
-        TestConfig result = delegate.loadInitial(supplier);
-
-        // Assert
-        assertNotNull(result, "Result should not be null");
-        assertTrue(Files.exists(configPath), "Config file should be created");
-        assertEquals("default", result.stringValue, "String value should be default");
-        assertEquals(0, result.intValue, "Int value should be default");
-        assertFalse(result.boolValue, "Bool value should be default");
-    }
-
-    @Test
     @DisplayName("Try load from file - Should load existing file")
     void tryLoadFromFile_shouldLoadExistingFile() throws Exception {
         // Arrange
@@ -174,128 +156,8 @@ class YamlPersistenceDelegateTest {
         assertTrue(testConfig.boolValue, "Bool value should be loaded");
     }
 
-    @Test
-    @DisplayName("Reload - Should update instance fields")
-    void reload_shouldUpdateInstanceFields() throws IOException {
-        // Arrange
-        String yaml = "string-value: updated value\n" +
-                "int-value: 123\n" +
-                "bool-value: true\n" +
-                "double-value: 2.71828\n" +
-                "long-value: 1234567890\n" +
-                "string-list: [reload1, reload2]\n" +
-                "string-map: {key1: reload value}\n";
-        Files.writeString(configPath, yaml);
-
-        // Act
-        delegate.reload(testConfig);
-
-        // Assert - Basic types
-        assertEquals("updated value", testConfig.stringValue, "String value should be updated");
-        assertEquals(123, testConfig.intValue, "Int value should be updated");
-        assertTrue(testConfig.boolValue, "Boolean value should be updated");
-        assertEquals(2.71828, testConfig.doubleValue, 0.00001, "Double value should be updated");
-        assertEquals(1234567890, testConfig.longValue, "Long value should be updated");
-
-        // Assert - Collections
-        assertEquals(2, testConfig.stringList.size(), "String list should have 2 items");
-        assertEquals("reload1", testConfig.stringList.get(0), "First string list item should match");
-        assertEquals(1, testConfig.stringMap.size(), "String map should have 1 entry");
-        assertEquals("reload value", testConfig.stringMap.get("key1"), "Map value should match");
-    }
-
-    @Test
-    @DisplayName("Save and load collections - Should handle lists and maps correctly")
-    void saveAndLoad_shouldHandleCollectionsCorrectly() {
-        // Arrange
-        testConfig.stringList.add("item1");
-        testConfig.stringList.add("item2");
-        testConfig.intList.add(1);
-        testConfig.intList.add(2);
-        testConfig.stringMap.put("key1", "value1");
-        testConfig.stringMap.put("key2", "value2");
-
-        Map<String, Object> nestedMap = new HashMap<>();
-        nestedMap.put("nestedKey", "nestedValue");
-        nestedMap.put("nestedInt", 42);
-        testConfig.nestedMap.put("nested", nestedMap);
-
-        // Act - Save and reload
-        delegate.save(testConfig);
-        TestConfig reloaded = new TestConfig();
-        delegate.reload(reloaded);
-
-        // Assert - Collections should be preserved
-        assertEquals(2, reloaded.stringList.size(), "String list should have 2 items");
-        assertTrue(reloaded.stringList.contains("item1"), "String list should contain item1");
-        assertTrue(reloaded.stringList.contains("item2"), "String list should contain item2");
-
-        assertEquals(2, reloaded.intList.size(), "Int list should have 2 items");
-        assertTrue(reloaded.intList.contains(1), "Int list should contain 1");
-        assertTrue(reloaded.intList.contains(2), "Int list should contain 2");
-
-        assertEquals(2, reloaded.stringMap.size(), "String map should have 2 entries");
-        assertEquals("value1", reloaded.stringMap.get("key1"), "Map should contain key1=value1");
-        assertEquals("value2", reloaded.stringMap.get("key2"), "Map should contain key2=value2");
-
-        // Nested maps are more complex and might be handled differently by different
-        // implementations
-        // Just check that something was loaded
-        assertFalse(reloaded.nestedMap.isEmpty(), "Nested map should not be empty");
-    }
-
-    @Test
-    @DisplayName("Special characters - Should handle special characters correctly")
-    void saveAndLoad_shouldHandleSpecialCharactersCorrectly() {
-        // Arrange - Set special characters
-        testConfig.specialChars = "Special chars: !@#$%^&*()_+{}|:<>?[];',./`~";
-
-        // Act - Save and reload
-        delegate.save(testConfig);
-        TestConfig reloaded = new TestConfig();
-        delegate.reload(reloaded);
-
-        // Assert - Special characters should be preserved
-        assertEquals(testConfig.specialChars, reloaded.specialChars, "Special characters should be preserved");
-    }
-
-    @Test
-    @DisplayName("Empty and null values - Should handle empty and null values correctly")
-    void saveAndLoad_shouldHandleEmptyAndNullValuesCorrectly() {
-        // Arrange - Set empty and null values
-        testConfig.emptyString = "";
-        testConfig.nullString = null;
-
-        // Act - Save and reload
-        delegate.save(testConfig);
-        TestConfig reloaded = new TestConfig();
-        reloaded.emptyString = "not empty"; // Set to non-empty to verify it gets overwritten
-        reloaded.nullString = "not null"; // Set to non-null to verify it gets overwritten
-        delegate.reload(reloaded);
-
-        // Assert - Empty and null values should be preserved
-        assertEquals("", reloaded.emptyString, "Empty string should be preserved");
-        assertNull(reloaded.nullString, "Null value should be preserved");
-    }
-
-    @Test
-    @DisplayName("Very long string - Should handle very long strings correctly")
-    void saveAndLoad_shouldHandleVeryLongStringsCorrectly() {
-        // Arrange - Create a very long string
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 1000; i++) {
-            sb.append("This is a very long string that should be handled correctly. ");
-        }
-        testConfig.veryLongString = sb.toString();
-
-        // Act - Save and reload
-        delegate.save(testConfig);
-        TestConfig reloaded = new TestConfig();
-        delegate.reload(reloaded);
-
-        // Assert - Very long string should be preserved
-        assertEquals(testConfig.veryLongString, reloaded.veryLongString, "Very long string should be preserved");
-    }
+    // Note: Tests for loadInitial, reload, collections, special chars, empty/null,
+    // and very long strings are now centralized in .integration-tests module
 
     @Test
     @DisplayName("Malformed YAML - Should handle malformed input files")
@@ -487,6 +349,7 @@ class YamlPersistenceDelegateTest {
         public void setBoolValue(boolean boolValue) {
             this.boolValue = boolValue;
         }
+
         public double getDoubleValue() {
             return doubleValue;
         }
