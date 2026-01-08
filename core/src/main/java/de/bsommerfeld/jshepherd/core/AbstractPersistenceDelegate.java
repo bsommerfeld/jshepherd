@@ -1,8 +1,12 @@
 package de.bsommerfeld.jshepherd.core;
 
+import de.bsommerfeld.jshepherd.annotation.Comment;
+import de.bsommerfeld.jshepherd.annotation.CommentSection;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
+
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
@@ -18,8 +22,8 @@ import java.util.logging.Logger;
 
 /**
  * Abstract base class for all persistence delegates.
- * Provides common functionality for file operations, type conversion, and
- * reflection-based data mapping.
+ * Provides common functionality for file operations, type conversion,
+ * comment writing, and reflection-based data mapping.
  */
 public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>> implements PersistenceDelegate<T> {
 
@@ -41,7 +45,6 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
 
     protected final Path filePath;
     protected final boolean useComplexSaveWithComments;
-    protected String lastCommentSectionHash = null;
 
     protected AbstractPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         this.filePath = filePath;
@@ -132,9 +135,9 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             return value;
         }
 
-        if (value instanceof Number) {
+        if (value instanceof Number number) {
             Function<Number, Object> converter = NUMERIC_CONVERTERS.get(targetType);
-            return converter != null ? converter.apply((Number) value) : value;
+            return converter != null ? converter.apply(number) : value;
         }
 
         return value;
@@ -174,8 +177,114 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
     }
 
     /**
-     * Helper for cleaning up temp files.
+     * Checks if a field should be skipped during persistence operations.
+     * Skips static and transient fields.
      */
+    protected final boolean shouldSkipField(Field field) {
+        return Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers());
+    }
+
+    // ==================== COMMENT WRITING UTILITIES ====================
+
+    /**
+     * Tracks comment section state during serialization to avoid duplicate section
+     * headers.
+     * Create a new instance for each save operation to ensure clean state.
+     */
+    protected static final class CommentContext {
+        private String lastSectionHash = null;
+
+        /** Creates a new comment context with empty state. */
+        public CommentContext() {
+        }
+
+        /** Resets the context for a new save operation. */
+        public void reset() {
+            lastSectionHash = null;
+        }
+
+        /** Returns true if this is the first section being written. */
+        public boolean isFirstSection() {
+            return lastSectionHash == null;
+        }
+
+        /**
+         * Returns true if the given section hash differs from the last one.
+         * Updates internal state if different.
+         */
+        public boolean shouldWriteSection(String sectionHash) {
+            if (sectionHash.equals(lastSectionHash)) {
+                return false;
+            }
+            lastSectionHash = sectionHash;
+            return true;
+        }
+    }
+
+    /**
+     * Writes class-level comments (file header) from @Comment annotation on the
+     * POJO class.
+     */
+    protected final void writeClassComments(PrintWriter writer, T pojoInstance) {
+        Comment classComment = pojoInstance.getClass().getAnnotation(Comment.class);
+        if (classComment != null && classComment.value().length > 0) {
+            for (String line : classComment.value()) {
+                writer.println("# " + line);
+            }
+            writer.println();
+        }
+    }
+
+    /**
+     * Writes section comments for a field if it has a @CommentSection annotation
+     * and the section differs from the previous one.
+     *
+     * @return true if a section comment was written (useful for formatting
+     *         decisions)
+     */
+    protected final boolean writeSectionComments(PrintWriter writer, Field field, CommentContext context) {
+        CommentSection sectionAnnotation = field.getAnnotation(CommentSection.class);
+        if (sectionAnnotation != null && sectionAnnotation.value().length > 0) {
+            String currentSectionHash = String.join("|", sectionAnnotation.value());
+            if (context.shouldWriteSection(currentSectionHash)) {
+                if (!context.isFirstSection()) {
+                    writer.println();
+                }
+                for (String commentLine : sectionAnnotation.value()) {
+                    writer.println("# " + commentLine);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Writes field-level comments from @Comment annotation.
+     */
+    protected final void writeFieldComments(PrintWriter writer, Field field) {
+        Comment fieldComment = field.getAnnotation(Comment.class);
+        if (fieldComment != null) {
+            for (String commentLine : fieldComment.value()) {
+                writer.println("# " + commentLine);
+            }
+        }
+    }
+
+    /**
+     * Resolves the configuration key for a field, using @Key annotation value or
+     * field name.
+     */
+    protected final String resolveKey(Field field) {
+        Key keyAnnotation = field.getAnnotation(Key.class);
+        if (keyAnnotation == null) {
+            return field.getName();
+        }
+        return keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
+    }
+
+    // ==================== PRIVATE HELPERS ====================
+
     private void cleanupTempFile(Path tempFilePath) {
         if (tempFilePath != null && Files.exists(tempFilePath)) {
             try {
@@ -186,19 +295,11 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
         }
     }
 
-    /**
-     * Checks if a field should be skipped during persistence operations.
-     * Skips static and transient fields.
-     */
-    protected final boolean shouldSkipField(Field field) {
-        return Modifier.isStatic(field.getModifiers()) || Modifier.isTransient(field.getModifiers());
-    }
-
     // ==================== ABSTRACT METHODS ====================
 
     /**
      * Format-specific loading implementation.
-     * 
+     *
      * @return true if data was loaded successfully, false if file was empty
      */
     protected abstract boolean tryLoadFromFile(T instance) throws Exception;
