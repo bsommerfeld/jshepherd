@@ -5,10 +5,36 @@ import de.bsommerfeld.jshepherd.annotation.PostInject;
 import java.util.Arrays;
 
 /**
- * Abstract base class for configuration POJOs that can be saved and reloaded. Uses a self-referential generic type
- * 'SELF' to ensure type safety with the PersistenceDelegate.
+ * Abstract base class for configuration POJOs that can be saved and reloaded.
  *
- * @param <SELF> The concrete type of the class extending ConfigurablePojo.
+ * <p>
+ * This class uses a self-referential generic type parameter ({@code SELF}) to
+ * ensure
+ * type-safe {@link #save()} and {@link #reload()} operations. The pattern
+ * allows the
+ * persistence layer to work with your concrete type without requiring casts.
+ * </p>
+ *
+ * <p>
+ * <b>Usage:</b>
+ * </p>
+ * 
+ * <pre>{@code
+ * // Pass your own class as the type parameter
+ * public class AppConfig extends ConfigurablePojo<AppConfig> {
+ *     // ...
+ * }
+ * }</pre>
+ *
+ * <p>
+ * <b>Why this pattern?</b> Without it, {@code reload()} would only know about
+ * {@code ConfigurablePojo}, not your specific fields. The self-reference
+ * ensures
+ * the persistence delegate can properly populate your concrete class.
+ * </p>
+ *
+ * @param <SELF> The concrete type extending this class (pass your own class
+ *               name)
  */
 public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
 
@@ -17,7 +43,8 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
     // Package-private: only ConfigurationLoader should set this.
     @SuppressWarnings("unchecked") // The delegate passed will be specific to SELF
     final void _setPersistenceDelegate(PersistenceDelegate<?> delegate) {
-        // This cast is now safe because ConfigurationLoader will pass a PersistenceDelegate<SELF>
+        // This cast is now safe because ConfigurationLoader will pass a
+        // PersistenceDelegate<SELF>
         this.persistenceDelegate = (PersistenceDelegate<SELF>) delegate;
     }
 
@@ -46,7 +73,8 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
     }
 
     /**
-     * Reloads the state of this configuration object from its persistent store. The fields of this instance will be
+     * Reloads the state of this configuration object from its persistent store. The
+     * fields of this instance will be
      * updated with the reloaded values.
      */
     @SuppressWarnings("unchecked")

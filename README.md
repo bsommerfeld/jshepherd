@@ -71,6 +71,8 @@ Replace `VERSION` with the latest release tag (e.g., `4.0.0`).
 
 ### 1. Define Your Configuration
 
+Extend `ConfigurablePojo<YourClassName>` — the self-reference enables type-safe `save()` and `reload()`:
+
 ```java
 @Comment("Application Configuration")
 public class AppConfig extends ConfigurablePojo<AppConfig> {
@@ -277,7 +279,3 @@ debug-mode = false
 > JSON does not support comments. When `withComments()` is enabled, a `config-documentation.md` file is generated alongside the JSON file.
 
 ---
-
-For detailed technical documentation, see: [Technical Documentation (German)](.docs/TECHNISCHE_DOKUMENTATION_de_V3.md)
-
-*AI tools were used to assist in the development of this library.*
