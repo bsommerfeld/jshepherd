@@ -60,20 +60,20 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
                 T defaultInstance = defaultPojoSupplier.get();
 
                 if (tryLoadFromFile(defaultInstance)) {
-                    LOGGER.debug(() -> "Configuration loaded from " + filePath);
+                    LOGGER.log(Level.FINE, () -> "Configuration loaded from " + filePath);
                     return defaultInstance;
                 } else {
-                    LOGGER.debug(() -> "Config file '" + filePath + "' was empty. Using defaults.");
+                    LOGGER.log(Level.FINE, () -> "Config file '" + filePath + "' was empty. Using defaults.");
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Initial load/parse of '" + filePath + "' failed. Using defaults.", e);
             }
         } else {
-            LOGGER.debug(() -> "Config file '" + filePath + "' not found. Creating with defaults.");
+            LOGGER.log(Level.FINE, () -> "Config file '" + filePath + "' not found. Creating with defaults.");
         }
 
         T defaultInstance = defaultPojoSupplier.get();
-        LOGGER.debug(() -> "Saving initial/default configuration to: " + filePath);
+        LOGGER.log(Level.FINE, () -> "Saving initial/default configuration to: " + filePath);
         save(defaultInstance);
         return defaultInstance;
     }
@@ -97,7 +97,7 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             }
 
             Files.move(tempFilePath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            LOGGER.debug(() -> "Configuration saved to " + filePath);
+            LOGGER.log(Level.FINE, () -> "Configuration saved to " + filePath);
         } catch (IOException e) {
             throw new ConfigurationException("Failed to save configuration to " + filePath, e);
         } finally {
@@ -108,16 +108,16 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
     @Override
     public final void reload(T pojoInstanceToUpdate) {
         if (!Files.exists(filePath)) {
-            LOGGER.debug(() -> "Configuration file '" + filePath
+            LOGGER.log(Level.FINE, () -> "Configuration file '" + filePath
                     + "' not found on reload attempt. Current values in instance remain.");
             return;
         }
 
         try {
             if (tryLoadFromFile(pojoInstanceToUpdate)) {
-                LOGGER.debug(() -> "Configuration reloaded into existing instance from " + filePath);
+                LOGGER.log(Level.FINE, () -> "Configuration reloaded into existing instance from " + filePath);
             } else {
-                LOGGER.debug(() -> "Configuration file '" + filePath
+                LOGGER.log(Level.FINE, () -> "Configuration file '" + filePath
                         + "' was empty on reload. Current values in instance remain.");
             }
         } catch (Exception e) {

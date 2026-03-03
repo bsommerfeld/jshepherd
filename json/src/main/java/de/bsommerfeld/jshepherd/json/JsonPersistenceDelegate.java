@@ -52,7 +52,7 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
         // Warn user if comments are requested but not supported
         if (useComplexSaveWithComments) {
-            LOGGER.debug(
+            LOGGER.log(Level.FINE,
                     "JSON format does not support comments natively. Comment annotations will be ignored. A separate documentation file will be generated instead.");
         }
     }
@@ -98,7 +98,7 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             try (PrintWriter docWriter = new PrintWriter(Files.newBufferedWriter(finalDocPath,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
                 generateDocumentationFile(pojoInstance, docWriter);
-                LOGGER.debug("Configuration documentation saved to " + finalDocPath);
+                LOGGER.log(Level.FINE, "Configuration documentation saved to " + finalDocPath);
             }
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to save documentation file", e);
