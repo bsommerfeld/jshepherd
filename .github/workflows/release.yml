@@ -8,7 +8,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     env:
       CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
@@ -89,3 +89,20 @@ jobs:
           mvn -B -DskipTests clean deploy \
             -P gpg \
             -s ~/.m2/settings.xml
+
+      # ──────────────────────────────────────────────────────
+      # 6. Update GitHub Release with Changelog
+      # ──────────────────────────────────────────────────────
+      - name: Update Release with Changelog
+        uses: bsommerfeld/release-changelog@v0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-file: 'CHANGELOG.md'
+          attach-changelog: 'true'
+          reset-changelog: 'true'
+          wait-for-release: '15'
+          prepend-text: |
+            ## Release ${{ github.ref_name }}
+
+            ![Build Status](https://img.shields.io/badge/Build-Success-brightgreen)
+            ![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld/jshepherd)
