@@ -102,7 +102,5 @@ jobs:
           reset-changelog: 'true'
           wait-for-release: '15'
           prepend-text: |
-            ## Release ${{ github.ref_name }}
-
             ![Build Status](https://img.shields.io/badge/Build-Success-brightgreen)
             ![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld/jshepherd)
