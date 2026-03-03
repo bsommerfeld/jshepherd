@@ -19,4 +19,4 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Run All Tests
-      run: ./test-all.sh
+      run: ./.script/test-all.sh
