@@ -103,4 +103,4 @@ jobs:
           wait-for-release: '15'
           prepend-text: |
             ![Build Status](https://img.shields.io/badge/Build-Success-brightgreen)
-            ![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld/jshepherd)
+            ![Maven Central](https://img.shields.io/maven-central/v/de.bsommerfeld.jshepherd/jshepherd)
