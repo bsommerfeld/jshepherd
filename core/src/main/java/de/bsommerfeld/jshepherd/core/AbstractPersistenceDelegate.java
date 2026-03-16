@@ -128,8 +128,10 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
     // ==================== SHARED UTILITIES ====================
 
     /**
-     * Converts numeric values between different Number types if needed.
+     * Converts values to match the target type. Handles numeric widening/narrowing
+     * and String-to-Enum conversion.
      */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     protected final Object convertNumericIfNeeded(Object value, Class<?> targetType) {
         if (value == null || targetType.isAssignableFrom(value.getClass())) {
             return value;
@@ -140,7 +142,26 @@ public abstract class AbstractPersistenceDelegate<T extends ConfigurablePojo<T>>
             return converter != null ? converter.apply(number) : value;
         }
 
+        // Enum stored as its constant name in all formats
+        if (targetType.isEnum() && value instanceof String name) {
+            return Enum.valueOf((Class<Enum>) targetType, name);
+        }
+
         return value;
+    }
+
+    /**
+     * Checks if the given type is an enum type.
+     */
+    protected final boolean isEnumType(Class<?> type) {
+        return type.isEnum();
+    }
+
+    /**
+     * Returns the constant name of an enum value for format-agnostic serialization.
+     */
+    protected final String serializeEnumValue(Object enumValue) {
+        return ((Enum<?>) enumValue).name();
     }
 
     /**

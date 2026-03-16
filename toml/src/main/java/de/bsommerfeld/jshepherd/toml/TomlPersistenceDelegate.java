@@ -309,7 +309,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
 
   private void writeTomlValue(PrintWriter writer, String key, Object value) {
     writer.print(key + " = ");
-    if (value instanceof String) {
+    if (value instanceof Enum<?>) {
+      writer.println("\"" + serializeEnumValue(value) + "\"");
+    } else if (value instanceof String) {
       writer.println("\"" + escapeString((String) value) + "\"");
     } else if (value instanceof Number || value instanceof Boolean || value instanceof LocalDate
         || value instanceof LocalDateTime) {
@@ -334,7 +336,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
       if (i > 0)
         writer.print(", ");
       Object item = list.get(i);
-      if (item instanceof String) {
+      if (item instanceof Enum<?>) {
+        writer.print("\"" + serializeEnumValue(item) + "\"");
+      } else if (item instanceof String) {
         writer.print("\"" + escapeString((String) item) + "\"");
       } else if (item instanceof List) {
         writeInlineArray(writer, (List<?>) item);
@@ -390,7 +394,9 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         writer.print(", ");
       writer.print(entry.getKey() + " = ");
       Object v = entry.getValue();
-      if (v instanceof String)
+      if (v instanceof Enum<?>)
+        writer.print("\"" + serializeEnumValue(v) + "\"");
+      else if (v instanceof String)
         writer.print("\"" + escapeString((String) v) + "\"");
       else if (v instanceof List)
         writeInlineArray(writer, (List<?>) v);
@@ -587,6 +593,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Object getValue(String key, Class<?> targetType) {
       Object rawValue = tomlData.get(key);
       if (rawValue instanceof TomlArray) {
@@ -606,6 +613,12 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         // These are handled by applyTomlSectionValues.
         return null;
       }
+
+      // TOML stores enums as strings; convert back to the enum constant
+      if (targetType.isEnum() && rawValue instanceof String name) {
+        return Enum.valueOf((Class<Enum>) targetType, name);
+      }
+
       return rawValue;
     }
   }

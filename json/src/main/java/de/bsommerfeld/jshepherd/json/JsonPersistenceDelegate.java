@@ -1,16 +1,22 @@
 package de.bsommerfeld.jshepherd.json;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyName;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.utils.ClassUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -45,15 +51,39 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         // Allow loading configs with obsolete keys that no longer exist in the POJO
-        this.objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
-                false);
-        this.objectMapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         this.objectMapper.setAnnotationIntrospector(new JShepherdAnnotationIntrospector());
+
+        // Enums with instance fields are serialized as objects by Jackson's default
+        // bean introspection. A global Enum serializer that always writes name()
+        // prevents the `{ }` output described in bsommerfeld/jshepherd#10.
+        SimpleModule enumModule = new SimpleModule("JShepherdEnumModule");
+        enumModule.addSerializer(Enum.class, new EnumNameSerializer());
+        this.objectMapper.registerModule(enumModule);
+
+        // Deserialization already reads enum names by default — no extra config needed.
 
         // Warn user if comments are requested but not supported
         if (useComplexSaveWithComments) {
             LOGGER.log(Level.FINE,
                     "JSON format does not support comments natively. Comment annotations will be ignored. A separate documentation file will be generated instead.");
+        }
+    }
+
+    /**
+     * Serializes every enum value as its constant name, regardless of
+     * whether the enum declares instance fields.
+     */
+    @SuppressWarnings("rawtypes")
+    private static class EnumNameSerializer extends StdSerializer<Enum> {
+        EnumNameSerializer() {
+            super(Enum.class);
+        }
+
+        @Override
+        public void serialize(Enum value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            gen.writeString(value.name());
         }
     }
 

@@ -253,6 +253,101 @@ class CorePersistenceIntegrationTest {
         assertEquals(9876543210L, reloaded.longValue, "Long should match for " + format);
     }
 
+    // ==================== ENUM TESTS (GitHub Issue #10) ====================
+
+    @ParameterizedTest(name = "Format: {0}")
+    @ValueSource(strings = {"yaml", "json", "toml"})
+    @DisplayName("Save and load handles simple enum correctly")
+    void saveAndLoad_handlesSimpleEnumCorrectly(String format) throws IOException {
+        Path configPath = tempDir.resolve("enum-config." + format);
+
+        EnumConfig config = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        config.simpleMode = SimpleMode.ADVANCED;
+        config.save();
+
+        EnumConfig reloaded = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        assertEquals(SimpleMode.ADVANCED, reloaded.simpleMode,
+            "Simple enum should be preserved for " + format);
+    }
+
+    @ParameterizedTest(name = "Format: {0}")
+    @ValueSource(strings = {"yaml", "json", "toml"})
+    @DisplayName("Save and load handles enum with instance fields correctly (Issue #10)")
+    void saveAndLoad_handlesEnumWithInstanceFieldsCorrectly(String format) throws IOException {
+        Path configPath = tempDir.resolve("enum-fields-config." + format);
+
+        EnumConfig config = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        config.selector = TransportSelector.EPOLL;
+        config.save();
+
+        // Verify the file content contains the enum name as a plain string
+        String content = Files.readString(configPath);
+        assertTrue(content.contains("EPOLL"),
+            "File should contain enum constant name 'EPOLL' for " + format + ". Content: " + content);
+        assertFalse(content.contains("{ }") || content.contains("{}"),
+            "File should NOT contain empty inline table for " + format + ". Content: " + content);
+
+        EnumConfig reloaded = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        assertEquals(TransportSelector.EPOLL, reloaded.selector,
+            "Enum with instance field should be preserved for " + format);
+    }
+
+    @ParameterizedTest(name = "Format: {0}")
+    @ValueSource(strings = {"yaml", "json", "toml"})
+    @DisplayName("Default enum value round-trips correctly")
+    void saveAndLoad_defaultEnumValueRoundTrips(String format) throws IOException {
+        Path configPath = tempDir.resolve("enum-default-config." + format);
+
+        // Load creates file with defaults
+        EnumConfig config = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        // Reload from the generated file
+        EnumConfig reloaded = ConfigurationLoader.from(configPath)
+            .withoutComments()
+            .load(EnumConfig::new);
+
+        assertEquals(SimpleMode.BASIC, reloaded.simpleMode,
+            "Default simple enum should round-trip for " + format);
+        assertEquals(TransportSelector.AUTO, reloaded.selector,
+            "Default enum with fields should round-trip for " + format);
+    }
+
+    // ==================== TEST ENUMS ====================
+
+    public enum SimpleMode {
+        BASIC,
+        ADVANCED
+    }
+
+    /**
+     * Enum with an instance field — the exact pattern reported in Issue #10.
+     */
+    public enum TransportSelector {
+        NIO("nio"),
+        EPOLL("epoll"),
+        AUTO("auto");
+
+        private final String transportType;
+
+        TransportSelector(String transportType) {
+            this.transportType = transportType;
+        }
+    }
+
     // ==================== TEST CONFIG ====================
 
     @Comment("Test configuration for integration tests")
@@ -280,5 +375,13 @@ class CorePersistenceIntegrationTest {
 
         @Key("string-map")
         public Map<String, String> stringMap = new HashMap<>();
+    }
+
+    public static class EnumConfig extends ConfigurablePojo<EnumConfig> {
+        @Key("simple-mode")
+        public SimpleMode simpleMode = SimpleMode.BASIC;
+
+        @Key("transport-selector")
+        public TransportSelector selector = TransportSelector.AUTO;
     }
 }

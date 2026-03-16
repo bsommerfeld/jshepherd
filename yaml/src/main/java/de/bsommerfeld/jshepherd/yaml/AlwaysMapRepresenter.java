@@ -19,6 +19,12 @@ class AlwaysMapRepresenter extends Representer {
         super(options);
         // Be lenient with unknown properties when introspecting beans
         this.getPropertyUtils().setSkipMissingProperties(true);
+
+        // Enums with instance fields are treated as JavaBeans by default,
+        // resulting in mapping output. Registering an explicit representer
+        // forces them to be written as plain scalar strings.
+        this.multiRepresenters.put(Enum.class, data -> representScalar(
+                Tag.STR, ((Enum<?>) data).name()));
     }
 
     @Override
