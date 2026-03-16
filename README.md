@@ -30,24 +30,24 @@ JShepherd is available on **Maven Central**. Check the badge above for the lates
     <dependency>
         <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>core</artifactId>
-        <version>4.0.2</version>
+        <version>4.0.3</version>
     </dependency>
 
     <!-- Format-specific modules (include only what you need) -->
     <dependency>
         <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>yaml</artifactId>
-        <version>4.0.2</version>
+        <version>4.0.3</version>
     </dependency>
     <dependency>
         <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>json</artifactId>
-        <version>4.0.2</version>
+        <version>4.0.3</version>
     </dependency>
     <dependency>
         <groupId>de.bsommerfeld.jshepherd</groupId>
         <artifactId>toml</artifactId>
-        <version>4.0.2</version>
+        <version>4.0.3</version>
     </dependency>
 </dependencies>
 ```
@@ -57,12 +57,12 @@ JShepherd is available on **Maven Central**. Check the badge above for the lates
 ```groovy
 dependencies {
     // Core module (required)
-    implementation 'de.bsommerfeld.jshepherd:core:4.0.2'
+    implementation 'de.bsommerfeld.jshepherd:core:4.0.3'
 
     // Format-specific modules (include only what you need)
-    implementation 'de.bsommerfeld.jshepherd:yaml:4.0.2'
-    implementation 'de.bsommerfeld.jshepherd:json:4.0.2'
-    implementation 'de.bsommerfeld.jshepherd:toml:4.0.2'
+    implementation 'de.bsommerfeld.jshepherd:yaml:4.0.3'
+    implementation 'de.bsommerfeld.jshepherd:json:4.0.3'
+    implementation 'de.bsommerfeld.jshepherd:toml:4.0.3'
 }
 ```
 
