@@ -70,6 +70,25 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                                <!-- Strip multi-release class entries from bundled JARs.
+                                     The shade plugin does not relocate MR entries, so
+                                     unrelocated packages would cause split-package conflicts
+                                     on the module path. Root-level classes are sufficient. -->
+                                <filter>
+                                    <artifact>org.yaml:snakeyaml</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <relocations>
                                 <relocation>
                                     <pattern>org.yaml.snakeyaml</pattern>
@@ -84,6 +103,38 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Shade strips module-info.class because it can't relocate module
+                 descriptor references. Moditect re-injects a valid descriptor
+                 that only references external (non-shaded) modules. -->
+            <plugin>
+                <groupId>org.moditect</groupId>
+                <artifactId>moditect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-module-info</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>add-module-info</goal>
+                        </goals>
+                        <configuration>
+                            <overwriteExistingFiles>true</overwriteExistingFiles>
+                            <module>
+                                <moduleInfoSource>
+                                    module de.bsommerfeld.jshepherd.yaml {
+                                        exports de.bsommerfeld.jshepherd.yaml;
+                                        opens de.bsommerfeld.jshepherd.yaml to de.bsommerfeld.jshepherd.core;
+                                        requires de.bsommerfeld.jshepherd.core;
+                                        requires java.logging;
+                                        provides de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory
+                                                with de.bsommerfeld.jshepherd.yaml.YamlPersistenceDelegateFactory;
+                                    }
+                                </moduleInfoSource>
+                            </module>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
 </project>

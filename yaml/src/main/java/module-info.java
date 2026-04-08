@@ -6,7 +6,7 @@ module de.bsommerfeld.jshepherd.yaml {
     requires de.bsommerfeld.jshepherd.core;
     requires java.logging;
     requires org.yaml.snakeyaml;
-    requires com.google.auto.service;
+    requires static com.google.auto.service;
 
     provides de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory
             with de.bsommerfeld.jshepherd.yaml.YamlPersistenceDelegateFactory;

@@ -60,4 +60,19 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Run tests on the module path so ServiceLoader uses the
+                         module-info.class provides directives (not META-INF/services),
+                         validating the full JPMS service loading chain. -->
+                    <useModulePath>true</useModulePath>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

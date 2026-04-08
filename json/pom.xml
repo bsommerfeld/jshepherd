@@ -20,7 +20,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.15.2</version>
+            <version>2.18.5</version>
         </dependency>
         <dependency>
             <groupId>de.bsommerfeld.jshepherd</groupId>
@@ -70,6 +70,25 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                                <!-- Strip multi-release class entries from bundled JARs.
+                                     The shade plugin does not relocate MR entries, so
+                                     unrelocated packages would cause split-package conflicts
+                                     on the module path. Root-level classes are sufficient. -->
+                                <filter>
+                                    <artifact>com.fasterxml.jackson.core:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <relocations>
                                 <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
@@ -84,6 +103,44 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Shade strips module-info.class because it can't relocate module
+                 descriptor references. Moditect re-injects a valid descriptor
+                 that only references external (non-shaded) modules. -->
+            <plugin>
+                <groupId>org.moditect</groupId>
+                <artifactId>moditect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-module-info</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>add-module-info</goal>
+                        </goals>
+                        <configuration>
+                            <overwriteExistingFiles>true</overwriteExistingFiles>
+                            <module>
+                                <moduleInfoSource>
+                                    module de.bsommerfeld.jshepherd.json {
+                                        exports de.bsommerfeld.jshepherd.json;
+                                        opens de.bsommerfeld.jshepherd.json to de.bsommerfeld.jshepherd.core;
+                                        requires de.bsommerfeld.jshepherd.core;
+                                        requires java.logging;
+                                        // Jackson's optional ext handlers probe these JDK modules at static
+                                        // init time. "requires static" establishes the reads edge when
+                                        // the module is present, without failing when it is absent.
+                                        requires static java.desktop;
+                                        requires static java.sql;
+                                        requires static java.xml;
+                                        provides de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory
+                                                with de.bsommerfeld.jshepherd.json.JsonPersistenceDelegateFactory;
+                                    }
+                                </moduleInfoSource>
+                            </module>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
 </project>

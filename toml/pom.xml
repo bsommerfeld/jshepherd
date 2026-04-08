@@ -70,6 +70,15 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <relocations>
                                 <relocation>
                                     <pattern>org.tomlj</pattern>
@@ -80,6 +89,10 @@
                                     <shadedPattern>de.bsommerfeld.jshepherd.toml.shared.antlr</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.checkerframework</pattern>
+                                    <shadedPattern>de.bsommerfeld.jshepherd.toml.shared.checkerframework</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.auto.service</pattern>
                                     <shadedPattern>de.bsommerfeld.jshepherd.toml.shared.autoservice</shadedPattern>
                                 </relocation>
@@ -88,6 +101,38 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Shade strips module-info.class because it can't relocate module
+                 descriptor references. Moditect re-injects a valid descriptor
+                 that only references external (non-shaded) modules. -->
+            <plugin>
+                <groupId>org.moditect</groupId>
+                <artifactId>moditect-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-module-info</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>add-module-info</goal>
+                        </goals>
+                        <configuration>
+                            <overwriteExistingFiles>true</overwriteExistingFiles>
+                            <module>
+                                <moduleInfoSource>
+                                    module de.bsommerfeld.jshepherd.toml {
+                                        exports de.bsommerfeld.jshepherd.toml;
+                                        opens de.bsommerfeld.jshepherd.toml to de.bsommerfeld.jshepherd.core;
+                                        requires de.bsommerfeld.jshepherd.core;
+                                        requires java.logging;
+                                        provides de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory
+                                                with de.bsommerfeld.jshepherd.toml.TomlPersistenceDelegateFactory;
+                                    }
+                                </moduleInfoSource>
+                            </module>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
 </project>
