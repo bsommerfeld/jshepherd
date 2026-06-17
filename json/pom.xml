@@ -23,6 +23,11 @@
             <version>2.18.5</version>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.18.5</version>
+        </dependency>
+        <dependency>
             <groupId>de.bsommerfeld.jshepherd</groupId>
             <artifactId>core</artifactId>
         </dependency>

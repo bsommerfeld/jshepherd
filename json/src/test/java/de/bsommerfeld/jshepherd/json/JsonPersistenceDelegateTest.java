@@ -223,9 +223,35 @@ class JsonPersistenceDelegateTest {
                 "No exceptions should occur during concurrent access: " + exceptions);
     }
 
+    @Test
+    @DisplayName("java.time round-trip - LocalDate and LocalDateTime should persist as ISO-8601 strings")
+    void saveAndLoad_shouldRoundTripJavaTimeTypes() throws Exception {
+        // Arrange
+        testConfig.releaseDate = java.time.LocalDate.of(2026, 6, 12);
+        testConfig.lastModified = java.time.LocalDateTime.of(2026, 6, 12, 13, 37, 0);
+
+        // Act
+        delegate.saveSimple(testConfig, configPath);
+        TestConfig loaded = new TestConfig();
+        delegate.tryLoadFromFile(loaded);
+
+        // Assert
+        String content = Files.readString(configPath);
+        assertTrue(content.contains("\"release-date\" : \"2026-06-12\""),
+                "LocalDate should be written as ISO-8601 string, got: " + content);
+        assertEquals(testConfig.releaseDate, loaded.releaseDate);
+        assertEquals(testConfig.lastModified, loaded.lastModified);
+    }
+
     // Test implementation of ConfigurablePojo with various field types
     @Comment({ "Test configuration class", "Used for testing JSON persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
+        @Key("release-date")
+        private java.time.LocalDate releaseDate;
+
+        @Key("last-modified")
+        private java.time.LocalDateTime lastModified;
+
         @Key("string-value")
         @Comment("String value description")
         private String stringValue = "default";

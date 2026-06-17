@@ -11,12 +11,12 @@ import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.bsommerfeld.jshepherd.annotation.Comment;
 import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
-import de.bsommerfeld.jshepherd.utils.ClassUtils;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  * Instead, a separate Markdown documentation file is generated when comments
  * are requested.
  */
-class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPersistenceDelegate<T> {
+class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
     private static final Logger LOGGER = Logger.getLogger(JsonPersistenceDelegate.class.getName());
 
@@ -49,6 +49,8 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         // Configure ObjectMapper for pretty printing and better formatting
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        // java.time support (LocalDate, LocalDateTime, ...) as ISO-8601 strings
+        this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         // Allow loading configs with obsolete keys that no longer exist in the POJO
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -159,54 +161,106 @@ class JsonPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
             writer.println();
         }
 
-        // Get all fields from the class hierarchy
-        List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
+        // Root-level @Key fields
         boolean hasAnyDocumentedFields = false;
+        for (Field field : getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+            hasAnyDocumentedFields |= documentField(writer, field, pojoInstance, "");
+        }
 
-        // Process each field
-        for (Field field : fields) {
-            if (shouldSkipField(field)) {
-                continue;
-            }
-
-            Key keyAnnotation = field.getAnnotation(Key.class);
-            if (keyAnnotation == null)
-                continue;
-
-            String jsonKey = keyAnnotation.value().isEmpty() ? field.getName() : keyAnnotation.value();
-
-            // Handle field comments
-            Comment fieldComment = field.getAnnotation(Comment.class);
-            if (fieldComment != null && fieldComment.value().length > 0) {
-                writer.println("### `" + jsonKey + "`");
-                writer.println();
-                for (String commentLine : fieldComment.value()) {
-                    writer.println(commentLine);
-                }
-                writer.println();
-                writer.println("**Type:** `" + field.getType().getSimpleName() + "`  ");
-
-                try {
-                    field.setAccessible(true);
-                    Object currentValue = field.get(pojoInstance);
-                    if (currentValue != null) {
-                        writer.println("**Current Value:** `" + currentValue + "`  ");
-                    }
-                } catch (IllegalAccessException e) {
-                    LOGGER.log(Level.WARNING, "Could not access field " + field.getName() + " for documentation", e);
-                }
-
-                writer.println();
-                hasAnyDocumentedFields = true;
-            }
+        // @Section fields and their nested keys (recursive)
+        for (Field sectionField : getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+            hasAnyDocumentedFields |= documentSection(writer, sectionField, pojoInstance, "", 1);
         }
 
         // If no documented fields were found, add a note
         if (!hasAnyDocumentedFields) {
-            writer.println("## Configuration Fields");
-            writer.println();
-            writer.println("*No documented fields found. Use @Comment annotations for field documentation.*");
+            writeNoDocumentedFieldsNote(writer);
         }
+    }
+
+    /**
+     * Documents a section and recursively all of its nested sections.
+     *
+     * @return true if any field inside was documented
+     */
+    private boolean documentSection(PrintWriter writer, Field sectionField, Object owner, String prefix, int depth) {
+        if (depth > MAX_SECTION_DEPTH) {
+            LOGGER.log(Level.WARNING, "Maximum section nesting depth (" + MAX_SECTION_DEPTH
+                    + ") exceeded at '" + sectionField.getName() + "'. Check for cyclic @Section references.");
+            return false;
+        }
+
+        String sectionName = prefix + resolveSectionName(sectionField);
+
+        writer.println("## Section `" + sectionName + "`");
+        writer.println();
+        Comment sectionComment = sectionField.getAnnotation(Comment.class);
+        if (sectionComment != null && sectionComment.value().length > 0) {
+            for (String line : sectionComment.value()) {
+                writer.println(line);
+            }
+            writer.println();
+        }
+
+        Object sectionPojo = null;
+        try {
+            sectionField.setAccessible(true);
+            sectionPojo = sectionField.get(owner);
+        } catch (IllegalAccessException e) {
+            LOGGER.log(Level.WARNING,
+                    "Could not access section field " + sectionField.getName() + " for documentation", e);
+        }
+        if (sectionPojo == null) {
+            return false;
+        }
+
+        boolean documented = false;
+        for (Field nestedField : getSectionPojoFields(sectionPojo)) {
+            documented |= documentField(writer, nestedField, sectionPojo, sectionName + ".");
+        }
+        for (Field subsectionField : getSectionPojoSubsectionFields(sectionPojo)) {
+            documented |= documentSection(writer, subsectionField, sectionPojo, sectionName + ".", depth + 1);
+        }
+        return documented;
+    }
+
+    /**
+     * Documents a single field if it carries a @Comment annotation.
+     *
+     * @return true if the field was documented
+     */
+    private boolean documentField(PrintWriter writer, Field field, Object owner, String keyPrefix) {
+        Comment fieldComment = field.getAnnotation(Comment.class);
+        if (fieldComment == null || fieldComment.value().length == 0) {
+            return false;
+        }
+
+        writer.println("### `" + keyPrefix + resolveKey(field) + "`");
+        writer.println();
+        for (String commentLine : fieldComment.value()) {
+            writer.println(commentLine);
+        }
+        writer.println();
+        writer.println("**Type:** `" + field.getType().getSimpleName() + "`  ");
+
+        try {
+            field.setAccessible(true);
+            Object currentValue = field.get(owner);
+            if (currentValue != null) {
+                writer.println("**Current Value:** `" + currentValue + "`  ");
+            }
+        } catch (IllegalAccessException e) {
+            LOGGER.log(Level.WARNING, "Could not access field " + field.getName() + " for documentation", e);
+        }
+
+        writer.println();
+        return true;
+    }
+
+    private void writeNoDocumentedFieldsNote(PrintWriter writer) {
+        writer.println("## Configuration Fields");
+        writer.println();
+        writer.println("*No documented fields found. Use @Comment annotations for field documentation.*");
     }
 
     /**

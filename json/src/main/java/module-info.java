@@ -6,6 +6,7 @@ module de.bsommerfeld.jshepherd.json {
     requires de.bsommerfeld.jshepherd.core;
     requires java.logging;
     requires com.fasterxml.jackson.databind;
+    requires com.fasterxml.jackson.datatype.jsr310;
     requires static com.google.auto.service;
 
     provides de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory
