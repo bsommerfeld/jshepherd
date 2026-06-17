@@ -270,9 +270,35 @@ class YamlPersistenceDelegateTest {
         }
     }
 
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("java.time round-trip - LocalDate and LocalDateTime should persist as scalars")
+    void saveAndLoad_shouldRoundTripJavaTimeTypes() throws Exception {
+        TestConfig config = new TestConfig();
+        config.releaseDate = java.time.LocalDate.of(2026, 6, 12);
+        config.lastModified = java.time.LocalDateTime.of(2026, 6, 12, 13, 37, 0);
+
+        delegate.saveWithComments(config, configPath);
+        String content = java.nio.file.Files.readString(configPath);
+        assertTrue(content.contains("release-date: ") && content.contains("2026-06-12"),
+                "LocalDate should be written as a scalar, got:\n" + content);
+        assertFalse(content.contains("release-date: {}"),
+                "LocalDate must not be dumped as an empty mapping");
+
+        TestConfig loaded = new TestConfig();
+        assertTrue(delegate.tryLoadFromFile(loaded));
+        assertEquals(config.releaseDate, loaded.releaseDate);
+        assertEquals(config.lastModified, loaded.lastModified);
+    }
+
     // Test implementation of ConfigurablePojo with various field types
     @Comment({ "Test configuration class", "Used for testing YAML persistence" })
     private static class TestConfig extends ConfigurablePojo<TestConfig> {
+        @Key("release-date")
+        private java.time.LocalDate releaseDate;
+
+        @Key("last-modified")
+        private java.time.LocalDateTime lastModified;
+
         @Key("string-value")
         @Comment("String value description")
         private String stringValue = "default";

@@ -32,7 +32,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPersistenceDelegate<T> {
+class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
   private static final Logger LOGGER = Logger.getLogger(YamlPersistenceDelegate.class.getName());
   private static final BeanAccess BEAN_ACCESS = BeanAccess.FIELD;
@@ -60,7 +60,7 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     representer.setPropertyUtils(propertyUtils);
 
     LoaderOptions loaderOptions = new LoaderOptions();
-    Constructor constructor = new Constructor(pojoClass, loaderOptions);
+    Constructor constructor = new TimeAwareConstructor(pojoClass, loaderOptions);
 
     // Critical Fix: Explicitly register TypeDescription with correct PropertyUtils.
     TypeDescription rootDescription = new TypeDescription(pojoClass);
@@ -89,6 +89,9 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     options.setIndicatorIndent(1);
     options.setSplitLines(false);
     options.setAllowUnicode(true);
+    // Pin the line break so dumped-value post-processing (trailing-newline
+    // stripping, multi-line detection) behaves identically on all platforms.
+    options.setLineBreak(DumperOptions.LineBreak.UNIX);
     options.setExplicitStart(false);
     options.setExplicitEnd(false);
     return options;
@@ -159,11 +162,11 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         }
       }
 
-      // Write sections
+      // Write sections (recursively, for nested @Section fields)
       List<Field> sectionFields = getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class);
       for (Field sectionField : sectionFields) {
         writer.println();
-        writeSectionWithComments(writer, sectionField, pojoInstance);
+        writeSectionWithComments(writer, sectionField, pojoInstance, "", 1);
       }
     } catch (IOException e) {
       LOGGER.log(Level.SEVERE, "Failed to save YAML file with comments", e);
@@ -193,12 +196,12 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     } else {
       String valueAsYaml = this.valueDumper.dump(value);
 
-      if (valueAsYaml.endsWith(System.lineSeparator())) {
-        valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - System.lineSeparator().length());
+      if (valueAsYaml.endsWith("\n")) {
+        valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - 1);
       }
 
       boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map)
-          && !valueAsYaml.contains(System.lineSeparator());
+          && !valueAsYaml.contains("\n");
       if (value instanceof List && ((List<?>) value).isEmpty())
         isScalarOrFlowCollection = true;
       if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
@@ -214,8 +217,14 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
   }
 
-  private void writeSectionWithComments(PrintWriter writer, Field sectionField, Object parentInstance)
-      throws IOException {
+  private void writeSectionWithComments(PrintWriter writer, Field sectionField, Object parentInstance,
+      String indent, int depth) throws IOException {
+    if (depth > MAX_SECTION_DEPTH) {
+      LOGGER.log(Level.WARNING, "Maximum section nesting depth (" + MAX_SECTION_DEPTH
+          + ") exceeded at '" + sectionField.getName() + "'. Check for cyclic @Section references.");
+      return;
+    }
+
     sectionField.setAccessible(true);
     Object sectionPojo;
     try {
@@ -232,17 +241,24 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     String sectionName = resolveSectionName(sectionField);
 
     // Write section comments (from @Comment on section field)
-    writeFieldComments(writer, sectionField);
-    writer.println(sectionName + ":");
+    writeIndentedFieldComments(writer, sectionField, indent);
+    writer.println(indent + sectionName + ":");
 
-    // Write nested fields with indent
+    // Write nested fields with one extra indent level
+    String childIndent = indent + "  ";
     List<Field> nestedFields = getSectionPojoFields(sectionPojo);
     for (int i = 0; i < nestedFields.size(); i++) {
       Field nestedField = nestedFields.get(i);
-      writeFieldWithComments(writer, nestedField, sectionPojo, "  ");
+      writeFieldWithComments(writer, nestedField, sectionPojo, childIndent);
       if (i < nestedFields.size() - 1) {
         writer.println();
       }
+    }
+
+    // Recurse into nested sections
+    for (Field subsectionField : getSectionPojoSubsectionFields(sectionPojo)) {
+      writer.println();
+      writeSectionWithComments(writer, subsectionField, sectionPojo, childIndent, depth + 1);
     }
   }
 
@@ -251,6 +267,33 @@ class YamlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     if (fieldComment != null) {
       for (String commentLine : fieldComment.value()) {
         writer.println(indent + "# " + commentLine);
+      }
+    }
+  }
+
+  /**
+   * SnakeYAML has no built-in java.time support. This constructor parses
+   * scalars into LocalDate/LocalDateTime when the target bean property
+   * declares one of those types.
+   */
+  private static class TimeAwareConstructor extends Constructor {
+
+    TimeAwareConstructor(Class<?> rootClass, LoaderOptions loaderOptions) {
+      super(rootClass, loaderOptions);
+      this.yamlClassConstructors.put(org.yaml.snakeyaml.nodes.NodeId.scalar, new TimeScalarConstruct());
+    }
+
+    private class TimeScalarConstruct extends ConstructScalar {
+      @Override
+      public Object construct(org.yaml.snakeyaml.nodes.Node node) {
+        Class<?> type = node.getType();
+        if (type == java.time.LocalDate.class) {
+          return java.time.LocalDate.parse(constructScalar((org.yaml.snakeyaml.nodes.ScalarNode) node));
+        }
+        if (type == java.time.LocalDateTime.class) {
+          return java.time.LocalDateTime.parse(constructScalar((org.yaml.snakeyaml.nodes.ScalarNode) node));
+        }
+        return super.construct(node);
       }
     }
   }

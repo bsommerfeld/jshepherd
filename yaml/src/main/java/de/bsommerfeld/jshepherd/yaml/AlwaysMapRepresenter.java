@@ -25,6 +25,13 @@ class AlwaysMapRepresenter extends Representer {
         // forces them to be written as plain scalar strings.
         this.multiRepresenters.put(Enum.class, data -> representScalar(
                 Tag.STR, ((Enum<?>) data).name()));
+
+        // SnakeYAML has no built-in java.time support — without these, a
+        // LocalDate field would be dumped as an (empty) JavaBean mapping.
+        this.representers.put(java.time.LocalDate.class, data -> representScalar(
+                Tag.STR, data.toString()));
+        this.representers.put(java.time.LocalDateTime.class, data -> representScalar(
+                Tag.STR, data.toString()));
     }
 
     @Override
