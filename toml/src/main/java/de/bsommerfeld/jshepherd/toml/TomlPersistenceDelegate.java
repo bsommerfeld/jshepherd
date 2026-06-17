@@ -15,8 +15,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -30,7 +28,7 @@ import java.util.stream.Collectors;
 /**
  * Implementation of PersistenceDelegate for TOML format using TOMLJ.
  */
-class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPersistenceDelegate<T> {
+class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
   private static final Logger LOGGER = Logger.getLogger(TomlPersistenceDelegate.class.getName());
 
@@ -264,7 +262,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         if (value instanceof Map<?, ?> map) {
           writeTomlTable(writer, tableName, map);
         } else {
-          writeTomlSectionFromPojo(writer, tableName, value, null, false);
+          writeTomlSectionFromPojo(writer, tableName, value, false, 1);
         }
       } catch (Exception e) {
         LOGGER.log(Level.WARNING, "Error section field " + field.getName(), e);
@@ -297,7 +295,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
         if (value instanceof Map<?, ?> map) {
           writeTomlTable(writer, tableName, map);
         } else {
-          writeTomlSectionFromPojo(writer, tableName, value, field, true);
+          writeTomlSectionFromPojo(writer, tableName, value, true, 1);
         }
       } catch (Exception e) {
         LOGGER.log(Level.WARNING, "Error section field " + field.getName(), e);
@@ -308,7 +306,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   // ... Writing Core Logic ...
 
   private void writeTomlValue(PrintWriter writer, String key, Object value) {
-    writer.print(key + " = ");
+    writer.print(formatTomlKey(key) + " = ");
     if (value instanceof Enum<?>) {
       writer.println("\"" + serializeEnumValue(value) + "\"");
     } else if (value instanceof String) {
@@ -392,7 +390,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     for (Map.Entry<String, Object> entry : map.entrySet()) {
       if (count > 0)
         writer.print(", ");
-      writer.print(entry.getKey() + " = ");
+      writer.print(formatTomlKey(entry.getKey()) + " = ");
       Object v = entry.getValue();
       if (v instanceof Enum<?>)
         writer.print("\"" + serializeEnumValue(v) + "\"");
@@ -414,7 +412,7 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   }
 
   private void writeTomlTable(PrintWriter writer, String tableName, Map<?, ?> map) {
-    writer.println("[" + tableName + "]");
+    writer.println("[" + formatTomlKey(tableName) + "]");
     if (map.isEmpty())
       return;
     for (Map.Entry<?, ?> entry : map.entrySet()) {
@@ -425,37 +423,66 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
     }
   }
 
-  private void writeTomlSectionFromPojo(PrintWriter writer, String tableName, Object nestedPojo, Field originalField,
-      boolean withComments) {
-    writer.println("[" + tableName + "]");
+  private void writeTomlSectionFromPojo(PrintWriter writer, String tableName, Object nestedPojo,
+      boolean withComments, int depth) {
+    if (depth > MAX_SECTION_DEPTH) {
+      LOGGER.log(Level.WARNING, "Maximum section nesting depth (" + MAX_SECTION_DEPTH
+          + ") exceeded at '" + tableName + "'. Check for cyclic @Section references.");
+      return;
+    }
+
+    writer.println("[" + formatTomlKey(tableName) + "]");
     if (nestedPojo == null)
       return;
 
-    List<Field> nestedFields = ClassUtils.getAllFieldsInHierarchy(nestedPojo.getClass(), ConfigurablePojo.class);
-    for (Field nf : nestedFields) {
-      if (shouldSkipField(nf))
-        continue;
-      Key k = nf.getAnnotation(Key.class);
-      if (k == null)
-        continue;
+    for (Field nf : getSectionPojoFields(nestedPojo)) {
       if (withComments) {
-        Comment innerComment = nf.getAnnotation(Comment.class);
-        if (innerComment != null) {
-          for (String c : innerComment.value())
-            writer.println("# " + c);
-        }
+        writeFieldComments(writer, nf);
       }
       try {
         nf.setAccessible(true);
         Object v = nf.get(nestedPojo);
         if (v == null)
           continue;
-        String key = k.value().isEmpty() ? nf.getName() : k.value();
-        writeTomlValue(writer, key, v);
+        writeTomlValue(writer, resolveKey(nf), v);
       } catch (Exception e) {
         LOGGER.log(Level.WARNING, "Error extracting nested field " + nf.getName(), e);
       }
     }
+
+    // Recurse into nested sections as dotted tables ([parent.child])
+    for (Field subsectionField : getSectionPojoSubsectionFields(nestedPojo)) {
+      try {
+        subsectionField.setAccessible(true);
+        Object subPojo = subsectionField.get(nestedPojo);
+        if (subPojo == null)
+          continue;
+        writer.println();
+        if (withComments) {
+          writeFieldComments(writer, subsectionField);
+        }
+        String subTableName = tableName + "." + getSectionTableName(subsectionField);
+        if (subPojo instanceof Map<?, ?> map) {
+          writeTomlTable(writer, subTableName, map);
+        } else {
+          writeTomlSectionFromPojo(writer, subTableName, subPojo, withComments, depth + 1);
+        }
+      } catch (Exception e) {
+        LOGGER.log(Level.WARNING, "Error writing nested section " + subsectionField.getName(), e);
+      }
+    }
+  }
+
+  /**
+   * Quotes keys that are not valid TOML bare keys (e.g. map keys containing
+   * spaces or special characters). Dotted paths of bare segments are left
+   * untouched so intentionally nested keys keep their meaning.
+   */
+  private String formatTomlKey(String key) {
+    if (key.matches("[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*")) {
+      return key;
+    }
+    return "\"" + escapeString(key) + "\"";
   }
 
   private String escapeString(String str) {
@@ -489,16 +516,12 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
           // Instantiating Nested POJO
           Object target = field.get(instance);
           if (target == null) {
-            try {
-              Constructor<?> ctor = fieldType.getDeclaredConstructor();
-              ctor.setAccessible(true);
-              target = ctor.newInstance();
-            } catch (Exception e) {
-              LOGGER.log(Level.WARNING, "Could not instantiate nested section " + fieldType.getSimpleName(), e);
+            target = instantiate(fieldType);
+            if (target == null) {
               continue;
             }
           }
-          populatePojoFromTable(target, tbl);
+          populatePojoFromTable(target, tbl, tableKey + ".", 1);
           field.set(instance, target);
         }
       } catch (Exception e) {
@@ -527,57 +550,77 @@ class TomlPersistenceDelegate<T extends ConfigurablePojo<T>> extends AbstractPer
   }
 
   private void populatePojoFromTable(Object target, TomlTable tbl) {
-    List<Field> nestedFields = ClassUtils.getAllFieldsInHierarchy(target.getClass(), ConfigurablePojo.class);
-    for (Field nf : nestedFields) {
-      if (shouldSkipField(nf))
-        continue;
-      Key innerKey = nf.getAnnotation(Key.class);
-      if (innerKey == null)
-        continue;
-      String innerName = innerKey.value().isEmpty() ? nf.getName() : innerKey.value();
+    populatePojoFromTable(target, tbl, "", 1);
+  }
+
+  private void populatePojoFromTable(Object target, TomlTable tbl, String keyPrefix, int depth) {
+    if (depth > MAX_SECTION_DEPTH) {
+      LOGGER.log(Level.WARNING, "Maximum section nesting depth (" + MAX_SECTION_DEPTH
+          + ") exceeded at '" + keyPrefix + "'. Check for cyclic @Section references.");
+      return;
+    }
+
+    for (Field nf : getSectionPojoFields(target)) {
+      String innerName = resolveKey(nf);
       if (!tbl.contains(innerName))
         continue;
 
       Object rv = tbl.get(innerName);
       try {
         nf.setAccessible(true);
-        if (rv instanceof TomlArray && List.class.isAssignableFrom(nf.getType())) {
-          TomlArray ta = (TomlArray) rv;
+        if (rv instanceof TomlArray ta && List.class.isAssignableFrom(nf.getType())) {
           List<Object> list = new ArrayList<>();
-
-          // Detect generic type for numeric conversion
-          Class<?> listContentType = getListGenericType(nf);
-
           for (int i = 0; i < ta.size(); i++) {
-            Object item = ta.get(i);
-            if (listContentType != null) {
-              item = convertNumericIfNeeded(item, listContentType);
-            }
-            list.add(item);
+            list.add(ta.get(i));
           }
-          nf.set(target, list);
-        } else if (rv instanceof TomlTable && Map.class.isAssignableFrom(nf.getType())) {
-          nf.set(target, convertTomlTableToMap((TomlTable) rv));
+          nf.set(target, convertValueForField(list, nf));
+        } else if (rv instanceof TomlTable innerTbl && Map.class.isAssignableFrom(nf.getType())) {
+          nf.set(target, convertValueForField(convertTomlTableToMap(innerTbl), nf));
         } else {
           nf.set(target, convertNumericIfNeeded(rv, nf.getType()));
         }
       } catch (Exception e) {
-        LOGGER.log(Level.WARNING, "Failed to set nested field " + innerName, e);
+        recordLoadIssue(keyPrefix + innerName, rv, nf.getType(), e);
+      }
+    }
+
+    // Recurse into nested sections
+    for (Field subsectionField : getSectionPojoSubsectionFields(target)) {
+      String subName = getSectionTableName(subsectionField);
+      Object raw = tbl.get(subName);
+      if (!(raw instanceof TomlTable subTbl)) {
+        continue;
+      }
+      try {
+        subsectionField.setAccessible(true);
+        if (Map.class.isAssignableFrom(subsectionField.getType())) {
+          subsectionField.set(target, convertTomlTableToMap(subTbl));
+          continue;
+        }
+        Object subPojo = subsectionField.get(target);
+        if (subPojo == null) {
+          subPojo = instantiate(subsectionField.getType());
+          if (subPojo == null) {
+            continue;
+          }
+          subsectionField.set(target, subPojo);
+        }
+        populatePojoFromTable(subPojo, subTbl, keyPrefix + subName + ".", depth + 1);
+      } catch (Exception e) {
+        LOGGER.log(Level.WARNING, "Error applying nested section '" + subName + "'", e);
       }
     }
   }
 
-  private Class<?> getListGenericType(Field field) {
-    if (field.getGenericType() instanceof ParameterizedType) {
-      ParameterizedType pt = (ParameterizedType) field.getGenericType();
-      if (pt.getActualTypeArguments().length > 0) {
-        Type content = pt.getActualTypeArguments()[0];
-        if (content instanceof Class<?>) {
-          return (Class<?>) content;
-        }
-      }
+  private Object instantiate(Class<?> type) {
+    try {
+      Constructor<?> ctor = type.getDeclaredConstructor();
+      ctor.setAccessible(true);
+      return ctor.newInstance();
+    } catch (Exception e) {
+      LOGGER.log(Level.WARNING, "Could not instantiate nested section " + type.getSimpleName(), e);
+      return null;
     }
-    return null;
   }
 
   private static class TomlDataExtractor implements DataExtractor {
