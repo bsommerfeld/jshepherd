@@ -1,7 +1,6 @@
 package de.bsommerfeld.jshepherd.yaml;
 
 import com.google.auto.service.AutoService;
-import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
 import de.bsommerfeld.jshepherd.core.PersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.PersistenceDelegateFactory;
 import java.nio.file.Path;
@@ -20,7 +19,7 @@ public class YamlPersistenceDelegateFactory implements PersistenceDelegateFactor
   }
 
   @Override
-  public <T extends ConfigurablePojo<T>> PersistenceDelegate<T> create(
+  public <T> PersistenceDelegate<T> create(
       Path filePath, boolean useComplexSaveWithComments) {
     return new YamlPersistenceDelegate<>(filePath, useComplexSaveWithComments);
   }

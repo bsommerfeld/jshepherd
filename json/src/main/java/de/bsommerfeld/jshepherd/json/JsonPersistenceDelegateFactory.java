@@ -18,7 +18,7 @@ public class JsonPersistenceDelegateFactory implements PersistenceDelegateFactor
   }
 
   @Override
-  public <T extends ConfigurablePojo<T>> PersistenceDelegate<T> create(
+  public <T> PersistenceDelegate<T> create(
       Path filePath, boolean useComplexSaveWithComments) {
     return new JsonPersistenceDelegate<>(filePath, useComplexSaveWithComments);
   }
