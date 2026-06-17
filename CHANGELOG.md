@@ -20,6 +20,7 @@
 
 ### Fixed
 
+- TOML: `LocalDateTime` values with whole-minute times (zero seconds) are now written with explicit seconds, producing valid TOML that round-trips instead of failing to parse
 - TOML: integer lists (`List<Integer>`) now load correctly (elements arrived as `Long`); typed map values are converted as well
 - `@PostInject` methods declared in superclasses are now invoked (previously only the concrete class was scanned)
 - YAML: comment-mode output was corrupted on Windows due to platform-dependent line-separator handling

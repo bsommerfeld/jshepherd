@@ -64,6 +64,29 @@ class TomlPersistenceDelegateTest {
     }
 
     @Test
+    @DisplayName("java.time round-trip - LocalDate and LocalDateTime persist as native TOML dates")
+    void saveAndLoad_shouldRoundTripJavaTimeTypes() throws Exception {
+        // Arrange
+        testConfig.releaseDate = java.time.LocalDate.of(2026, 6, 17);
+        testConfig.lastModified = java.time.LocalDateTime.of(2026, 6, 17, 13, 37, 0);
+
+        // Act
+        delegate.saveSimple(testConfig, configPath);
+        String content = Files.readString(configPath);
+
+        // TOML has first-class date types — they are written unquoted
+        assertTrue(content.contains("release-date = 2026-06-17"),
+                "LocalDate should be written as a native TOML date, got:\n" + content);
+        assertTrue(content.contains("last-modified = 2026-06-17T13:37"),
+                "LocalDateTime should be written as a native TOML datetime, got:\n" + content);
+
+        TestConfig reloaded = new TestConfig();
+        assertTrue(delegate.tryLoadFromFile(reloaded), "File should not be considered empty");
+        assertEquals(testConfig.releaseDate, reloaded.releaseDate);
+        assertEquals(testConfig.lastModified, reloaded.lastModified);
+    }
+
+    @Test
     @DisplayName("Save with comments - Should create TOML file with comments")
     void saveWithComments_shouldCreateTomlFileWithComments() throws IOException {
         // Arrange
@@ -315,5 +338,11 @@ class TomlPersistenceDelegateTest {
         @Key("very-long-string")
         @Comment("Very long string value")
         private String veryLongString = "";
+
+        @Key("release-date")
+        private java.time.LocalDate releaseDate = null;
+
+        @Key("last-modified")
+        private java.time.LocalDateTime lastModified = null;
     }
 }

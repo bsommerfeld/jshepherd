@@ -20,6 +20,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +34,22 @@ import java.util.stream.Collectors;
 class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
   private static final Logger LOGGER = Logger.getLogger(TomlPersistenceDelegate.class.getName());
+
+  // TOML local date-times require seconds; LocalDateTime.toString() omits them
+  // when zero, producing invalid TOML. This formatter always emits seconds and
+  // includes a fractional part only when present, so the value round-trips.
+  private static final DateTimeFormatter TOML_DATETIME = new DateTimeFormatterBuilder()
+      .append(DateTimeFormatter.ISO_LOCAL_DATE)
+      .appendLiteral('T')
+      .appendValue(ChronoField.HOUR_OF_DAY, 2)
+      .appendLiteral(':')
+      .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+      .appendLiteral(':')
+      .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+      .optionalStart()
+      .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+      .optionalEnd()
+      .toFormatter();
 
   TomlPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
     super(filePath, useComplexSaveWithComments);
@@ -311,9 +330,8 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       writer.println("\"" + serializeEnumValue(value) + "\"");
     } else if (value instanceof String) {
       writer.println("\"" + escapeString((String) value) + "\"");
-    } else if (value instanceof Number || value instanceof Boolean || value instanceof LocalDate
-        || value instanceof LocalDateTime) {
-      writer.println(value);
+    } else if (isPrimitiveOrDate(value)) {
+      writer.println(formatPrimitiveOrDate(value));
     } else if (value instanceof List) {
       writeInlineArray(writer, (List<?>) value);
       writer.println();
@@ -341,7 +359,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       } else if (item instanceof List) {
         writeInlineArray(writer, (List<?>) item);
       } else if (isPrimitiveOrDate(item)) {
-        writer.print(item);
+        writer.print(formatPrimitiveOrDate(item));
       } else {
         writeInlineTable(writer, item);
       }
@@ -399,7 +417,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       else if (v instanceof List)
         writeInlineArray(writer, (List<?>) v);
       else if (isPrimitiveOrDate(v))
-        writer.print(v);
+        writer.print(formatPrimitiveOrDate(v));
       else
         writeInlineTable(writer, v); // Recurse
       count++;
@@ -409,6 +427,17 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
   private boolean isPrimitiveOrDate(Object o) {
     return o instanceof Number || o instanceof Boolean || o instanceof LocalDate || o instanceof LocalDateTime;
+  }
+
+  /**
+   * Renders a primitive or date value as a TOML literal. LocalDateTime is
+   * formatted with explicit seconds so the output is always valid TOML.
+   */
+  private String formatPrimitiveOrDate(Object value) {
+    if (value instanceof LocalDateTime ldt) {
+      return TOML_DATETIME.format(ldt);
+    }
+    return String.valueOf(value);
   }
 
   private void writeTomlTable(PrintWriter writer, String tableName, Map<?, ?> map) {
