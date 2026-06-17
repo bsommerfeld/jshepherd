@@ -36,7 +36,7 @@ class SmartConfigMergingTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Obsolete keys are removed when saving")
     void obsoleteKeysRemovedOnSave(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -64,7 +64,7 @@ class SmartConfigMergingTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("New fields get default values when loading partial config")
     void newFieldsGetDefaultValues(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -84,7 +84,7 @@ class SmartConfigMergingTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("User-modified values are preserved on reload")
     void userModifiedValuesPreservedOnReload(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -109,7 +109,7 @@ class SmartConfigMergingTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Full cycle: create, modify, reload, add field, save")
     void fullCycleIntegration(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -168,6 +168,12 @@ class SmartConfigMergingTest {
                 obsolete-key = "should disappear"
                 bool-value = true
                 """;
+            case "properties" -> """
+                string-value=user value
+                int-value=42
+                obsolete-key=should disappear
+                bool-value=true
+                """;
             default -> throw new IllegalArgumentException("Unknown format: " + format);
         };
     }
@@ -187,6 +193,10 @@ class SmartConfigMergingTest {
             case "toml" -> """
                 string-value = "existing"
                 int-value = 99
+                """;
+            case "properties" -> """
+                string-value=existing
+                int-value=99
                 """;
             default -> throw new IllegalArgumentException("Unknown format: " + format);
         };

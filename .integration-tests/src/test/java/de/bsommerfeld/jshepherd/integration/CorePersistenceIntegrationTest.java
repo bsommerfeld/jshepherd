@@ -37,7 +37,7 @@ class CorePersistenceIntegrationTest {
     // ==================== LIFECYCLE TESTS ====================
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Load initial creates default config when file doesn't exist")
     void loadInitial_createsDefaultWhenFileNotExists(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -54,7 +54,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Reload updates instance with file changes")
     void reload_updatesInstanceWithFileChanges(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -83,7 +83,7 @@ class CorePersistenceIntegrationTest {
     // ==================== COLLECTION TESTS ====================
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles string lists correctly")
     void saveAndLoad_handlesStringListsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -108,7 +108,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json"})  // TOML has known Long conversion issues with integer lists
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles integer lists correctly")
     void saveAndLoad_handlesIntegerListsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -133,7 +133,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles string maps correctly")
     void saveAndLoad_handlesStringMapsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -158,7 +158,7 @@ class CorePersistenceIntegrationTest {
     // ==================== EDGE CASE TESTS ====================
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles special characters correctly")
     void saveAndLoad_handlesSpecialCharactersCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -179,7 +179,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles empty strings correctly")
     void saveAndLoad_handlesEmptyStringsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -199,7 +199,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles very long strings correctly")
     void saveAndLoad_handlesVeryLongStringsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -226,7 +226,7 @@ class CorePersistenceIntegrationTest {
     // ==================== TYPE TESTS ====================
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles all primitive types correctly")
     void saveAndLoad_handlesAllPrimitiveTypesCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("config." + format);
@@ -256,7 +256,7 @@ class CorePersistenceIntegrationTest {
     // ==================== ENUM TESTS (GitHub Issue #10) ====================
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles simple enum correctly")
     void saveAndLoad_handlesSimpleEnumCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("enum-config." + format);
@@ -277,7 +277,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Save and load handles enum with instance fields correctly (Issue #10)")
     void saveAndLoad_handlesEnumWithInstanceFieldsCorrectly(String format) throws IOException {
         Path configPath = tempDir.resolve("enum-fields-config." + format);
@@ -305,7 +305,7 @@ class CorePersistenceIntegrationTest {
     }
 
     @ParameterizedTest(name = "Format: {0}")
-    @ValueSource(strings = {"yaml", "json", "toml"})
+    @ValueSource(strings = {"yaml", "json", "toml", "properties"})
     @DisplayName("Default enum value round-trips correctly")
     void saveAndLoad_defaultEnumValueRoundTrips(String format) throws IOException {
         Path configPath = tempDir.resolve("enum-default-config." + format);

@@ -45,6 +45,11 @@
             <artifactId>toml</artifactId>
             <version>${revision}</version>
         </dependency>
+        <dependency>
+            <groupId>de.bsommerfeld.jshepherd</groupId>
+            <artifactId>properties</artifactId>
+            <version>${revision}</version>
+        </dependency>
 
         <!-- Test dependencies -->
         <dependency>

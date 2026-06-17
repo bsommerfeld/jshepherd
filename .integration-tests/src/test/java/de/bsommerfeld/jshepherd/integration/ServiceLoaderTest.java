@@ -20,16 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ServiceLoaderTest {
 
     @Test
-    @DisplayName("ServiceLoader discovers exactly three format factories")
-    void serviceLoader_discoversAllThreeFactories() {
+    @DisplayName("ServiceLoader discovers exactly four format factories")
+    void serviceLoader_discoversAllFourFactories() {
         List<PersistenceDelegateFactory> factories = ServiceLoader
                 .load(PersistenceDelegateFactory.class)
                 .stream()
                 .map(ServiceLoader.Provider::get)
                 .collect(Collectors.toList());
 
-        assertEquals(3, factories.size(),
-                "Expected exactly 3 format factories (json, yaml, toml), found: " +
+        assertEquals(4, factories.size(),
+                "Expected exactly 4 format factories (json, yaml, toml, properties), found: " +
                 factories.stream()
                         .map(f -> f.getClass().getSimpleName())
                         .collect(Collectors.joining(", ")));
@@ -48,5 +48,6 @@ class ServiceLoaderTest {
         assertTrue(extensions.contains("json"), "json extension must be supported");
         assertTrue(extensions.contains("yaml"), "yaml extension must be supported");
         assertTrue(extensions.contains("toml"), "toml extension must be supported");
+        assertTrue(extensions.contains("properties"), "properties extension must be supported");
     }
 }

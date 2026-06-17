@@ -4,6 +4,7 @@ open module de.bsommerfeld.jshepherd.integration.test {
     requires de.bsommerfeld.jshepherd.json;
     requires de.bsommerfeld.jshepherd.yaml;
     requires de.bsommerfeld.jshepherd.toml;
+    requires de.bsommerfeld.jshepherd.properties;
 
     requires org.junit.jupiter.api;
     requires org.junit.jupiter.params;
