@@ -1,14 +1,15 @@
 package de.bsommerfeld.jshepherd.core;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * Internal interface for handling the actual persistence mechanics (loading, saving, reloading) for a given type of
- * ConfigurablePojo.
+ * Internal interface for handling the actual persistence mechanics (loading, saving, reloading) for a given
+ * configuration POJO type — either a {@code ConfigurablePojo} subclass or a plain {@code @Configuration} class.
  *
- * @param <T> The type of ConfigurablePojo this delegate handles.
+ * @param <T> The configuration POJO type this delegate handles.
  */
-public interface PersistenceDelegate<T extends ConfigurablePojo<T>> {
+public interface PersistenceDelegate<T> {
     /**
      * Saves the provided POJO instance to the persistent store.
      *
@@ -32,4 +33,13 @@ public interface PersistenceDelegate<T extends ConfigurablePojo<T>> {
      * @return The loaded or newly created default POJO instance.
      */
     T loadInitial(Supplier<T> defaultPojoSupplier);
+
+    /**
+     * Returns the per-key issues recorded during the last load or reload.
+     *
+     * @return an immutable list; empty if the last load was clean
+     */
+    default List<LoadIssue> getLastLoadIssues() {
+        return List.of();
+    }
 }

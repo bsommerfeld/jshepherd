@@ -70,6 +70,22 @@ class ConfigurablePojoTest {
         assertTrue(exception.getMessage().contains("not properly initialized"));
     }
 
+    @Test
+    void reload_shouldInvokeInheritedPostInjectMethods() {
+        // Arrange
+        @SuppressWarnings("unchecked")
+        PersistenceDelegate<SubConfig> subDelegate = mock(PersistenceDelegate.class);
+        SubConfig subConfig = new SubConfig();
+        subConfig._setPersistenceDelegate(subDelegate);
+
+        // Act
+        subConfig.reload();
+
+        // Assert
+        assertTrue(subConfig.basePostInjectCalled, "@PostInject declared in a superclass should be invoked");
+        assertTrue(subConfig.subPostInjectCalled, "@PostInject declared in the subclass should be invoked");
+    }
+
     // Test implementation of ConfigurablePojo
     static class TestConfig extends ConfigurablePojo<TestConfig> {
         boolean postInjectCalled = false;
@@ -77,6 +93,24 @@ class ConfigurablePojoTest {
         @de.bsommerfeld.jshepherd.annotation.PostInject
         private void onPostInject() {
             postInjectCalled = true;
+        }
+    }
+
+    static abstract class BaseConfig<T extends BaseConfig<T>> extends ConfigurablePojo<T> {
+        boolean basePostInjectCalled = false;
+
+        @de.bsommerfeld.jshepherd.annotation.PostInject
+        private void onBasePostInject() {
+            basePostInjectCalled = true;
+        }
+    }
+
+    static class SubConfig extends BaseConfig<SubConfig> {
+        boolean subPostInjectCalled = false;
+
+        @de.bsommerfeld.jshepherd.annotation.PostInject
+        private void onSubPostInject() {
+            subPostInjectCalled = true;
         }
     }
 }

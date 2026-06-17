@@ -1,6 +1,7 @@
 package de.bsommerfeld.jshepherd.core;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.function.Supplier;
 
 /**
@@ -64,8 +65,11 @@ public class ConfigurationLoader {
      * Fluent builder for constructing and loading configuration.
      */
     public static final class Builder {
+        private static final Duration DEFAULT_AUTO_RELOAD_INTERVAL = Duration.ofSeconds(1);
+
         private final Path filePath;
         private boolean useComments = true;
+        private Duration autoReloadInterval;
 
         private Builder(Path filePath) {
             this.filePath = filePath;
@@ -89,6 +93,32 @@ public class ConfigurationLoader {
         }
 
         /**
+         * Enables automatic reloading: the configuration file is watched on a
+         * background daemon thread and the POJO is reloaded whenever the file
+         * changes on disk. Polls once per second.
+         *
+         * <p>Use {@link ConfigurablePojo#setOnAutoReload(Runnable)} to get
+         * notified after a reload and {@link ConfigurablePojo#stopAutoReload()}
+         * to stop watching.</p>
+         */
+        public Builder withAutoReload() {
+            return withAutoReload(DEFAULT_AUTO_RELOAD_INTERVAL);
+        }
+
+        /**
+         * Enables automatic reloading with a custom poll interval.
+         *
+         * @param pollInterval how often to check the file for changes; must be positive
+         */
+        public Builder withAutoReload(Duration pollInterval) {
+            if (pollInterval == null || pollInterval.isZero() || pollInterval.isNegative()) {
+                throw new IllegalArgumentException("Auto-reload poll interval must be positive");
+            }
+            this.autoReloadInterval = pollInterval;
+            return this;
+        }
+
+        /**
          * Loads the configuration using the specified default POJO supplier.
          * If the file exists, values are loaded from it. Otherwise, a new file
          * is created with default values from the supplier.
@@ -98,16 +128,78 @@ public class ConfigurationLoader {
          * @return The loaded (or newly created) configuration instance
          */
         public <T extends ConfigurablePojo<T>> T load(Supplier<T> defaultPojoSupplier) {
-            return ConfigurationLoader.load(filePath, defaultPojoSupplier, useComments);
+            T pojoInstance = ConfigurationLoader.load(filePath, defaultPojoSupplier, useComments);
+
+            if (autoReloadInterval != null) {
+                ConfigurationWatcher watcher = new ConfigurationWatcher(filePath, autoReloadInterval, () -> {
+                    pojoInstance.reload();
+                    Runnable listener = pojoInstance.autoReloadListener;
+                    if (listener != null) {
+                        listener.run();
+                    }
+                });
+                pojoInstance._setWatcher(watcher);
+                watcher.start();
+            }
+
+            return pojoInstance;
+        }
+
+        /**
+         * Loads a plain {@code @Configuration}-annotated POJO (no need to extend
+         * {@code ConfigurablePojo}) and returns a {@link Config} handle that
+         * carries the lifecycle operations:
+         *
+         * <pre>{@code
+         * Config<AppConfig> config = ConfigurationLoader.from(path).loadPlain(AppConfig::new);
+         * AppConfig app = config.get();
+         * config.save();
+         * }</pre>
+         *
+         * @param defaultPojoSupplier Supplier for creating default POJO instances
+         * @param <T>                 The plain configuration POJO type
+         * @return A handle wrapping the loaded (or newly created) configuration
+         */
+        public <T> Config<T> loadPlain(Supplier<T> defaultPojoSupplier) {
+            T probe = defaultPojoSupplier.get();
+            if (probe instanceof ConfigurablePojo<?>) {
+                throw new ConfigurationException(probe.getClass().getSimpleName()
+                        + " extends ConfigurablePojo — use load(...) instead of loadPlain(...)");
+            }
+            if (!probe.getClass().isAnnotationPresent(de.bsommerfeld.jshepherd.annotation.Configuration.class)) {
+                throw new ConfigurationException(probe.getClass().getSimpleName()
+                        + " must be annotated with @Configuration to be loaded as a plain config POJO");
+            }
+
+            PersistenceDelegate<T> delegate = determinePersistenceDelegate(filePath, useComments);
+            T instance = delegate.loadInitial(defaultPojoSupplier);
+            PostInjectInvoker.invoke(instance, null, delegate.getLastLoadIssues());
+
+            ConfigHandle<T> handle = new ConfigHandle<>(instance, delegate);
+            if (autoReloadInterval != null) {
+                ConfigurationWatcher watcher = new ConfigurationWatcher(filePath, autoReloadInterval, () -> {
+                    handle.reload();
+                    handle.notifyAutoReloadListener();
+                });
+                handle._setWatcher(watcher);
+                watcher.start();
+            }
+            return handle;
         }
     }
 
     // ==================== INTERNAL HELPERS ====================
 
-    private static <T extends ConfigurablePojo<T>> PersistenceDelegate<T> determinePersistenceDelegate(
+    private static <T> PersistenceDelegate<T> determinePersistenceDelegate(
             Path filePath, boolean useComplexSaveWithComments) {
         String fileName = filePath.getFileName().toString();
-        String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            throw new ConfigurationException(
+                    "Cannot determine configuration format: file name '" + fileName
+                            + "' has no file extension (expected e.g. .yaml, .json or .toml)");
+        }
+        String fileExtension = fileName.substring(dotIndex + 1);
 
         PersistenceDelegateFactory factory = PersistenceDelegateFactoryRegistry.getFactory(fileExtension);
         return factory.create(filePath, useComplexSaveWithComments);

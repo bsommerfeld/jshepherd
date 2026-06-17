@@ -64,6 +64,57 @@ class AbstractPersistenceDelegateTest {
     }
 
     @Test
+    void loadInitial_shouldBackUpUnparseableFileBeforeOverwriting() throws IOException {
+        // Arrange
+        String corruptContent = "{ this is not valid";
+        Files.writeString(configPath, corruptContent);
+        delegate.throwOnLoad = true;
+
+        // Act
+        TestConfig result = delegate.loadInitial(TestConfig::new);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals("default", result.stringValue, "Defaults should be used when parsing fails");
+        Path backupPath = configPath.resolveSibling(configPath.getFileName() + ".bak");
+        assertTrue(Files.exists(backupPath), "Unparseable file should be backed up");
+        assertEquals(corruptContent, Files.readString(backupPath), "Backup should preserve original content");
+    }
+
+    @Test
+    void loadInitial_shouldRecordLoadIssuesForUnconvertibleValues() throws IOException {
+        // Arrange - a string that cannot be coerced into the int field
+        Files.writeString(configPath, "{}");
+        delegate.dataToLoad.put("stringValue", "fine");
+        delegate.dataToLoad.put("intValue", "abc");
+
+        // Act
+        TestConfig result = delegate.loadInitial(TestConfig::new);
+
+        // Assert
+        assertEquals("fine", result.stringValue, "Valid values should still be applied");
+        assertEquals(0, result.intValue, "Field with bad value should keep its default");
+        assertEquals(1, result.getLastLoadIssues().size(), "One issue should be recorded");
+        LoadIssue issue = result.getLastLoadIssues().get(0);
+        assertEquals("intValue", issue.key());
+        assertEquals("abc", issue.rawValue());
+        assertEquals(int.class, issue.targetType());
+    }
+
+    @Test
+    void loadInitial_shouldReportNoIssuesForCleanLoad() throws IOException {
+        // Arrange
+        Files.writeString(configPath, "{}");
+        delegate.dataToLoad.put("intValue", 7);
+
+        // Act
+        TestConfig result = delegate.loadInitial(TestConfig::new);
+
+        // Assert
+        assertTrue(result.getLastLoadIssues().isEmpty(), "Clean load should have no issues");
+    }
+
+    @Test
     void save_shouldCreateParentDirectories() throws IOException {
         // Arrange
         Path nestedPath = tempDir.resolve("nested/deeply/config.json");
@@ -107,6 +158,22 @@ class AbstractPersistenceDelegateTest {
 
         assertTrue(floatFromDouble instanceof Float);
         assertEquals(300.5f, floatFromDouble);
+    }
+
+    @Test
+    void convertNumericIfNeeded_shouldCoerceStringsIntoNumericAndBooleanTargets() {
+        // Quoted numbers / string-based formats into typed fields
+        assertEquals(8080, delegate.testConvertNumericIfNeeded("8080", int.class));
+        assertEquals(3.14, delegate.testConvertNumericIfNeeded("3.14", double.class));
+        assertEquals(42L, delegate.testConvertNumericIfNeeded(" 42 ", Long.class), "Whitespace should be tolerated");
+        assertEquals(Boolean.TRUE, delegate.testConvertNumericIfNeeded("true", boolean.class));
+        assertEquals(Boolean.FALSE, delegate.testConvertNumericIfNeeded("FALSE", Boolean.class));
+
+        // String fields are never touched
+        assertEquals("8080", delegate.testConvertNumericIfNeeded("8080", String.class));
+
+        // Garbage stays untouched so the failure surfaces in the warning log
+        assertEquals("not-a-number", delegate.testConvertNumericIfNeeded("not-a-number", int.class));
     }
 
     @Test
@@ -188,6 +255,7 @@ class AbstractPersistenceDelegateTest {
     // Test implementation of AbstractPersistenceDelegate
     private static class TestPersistenceDelegate extends AbstractPersistenceDelegate<TestConfig> {
         boolean saveCalled = false;
+        boolean throwOnLoad = false;
         Map<String, Object> dataToLoad = new HashMap<>();
 
         TestPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
@@ -196,6 +264,9 @@ class AbstractPersistenceDelegateTest {
 
         @Override
         protected boolean tryLoadFromFile(TestConfig instance) {
+            if (throwOnLoad) {
+                throw new RuntimeException("Simulated parse failure");
+            }
             if (dataToLoad.isEmpty()) {
                 return false;
             }

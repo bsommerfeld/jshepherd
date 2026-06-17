@@ -21,6 +21,6 @@ public interface PersistenceDelegateFactory {
      * @param <T> The configuration POJO type
      * @return A configured persistence delegate
      */
-    <T extends ConfigurablePojo<T>> PersistenceDelegate<T> create(
+    <T> PersistenceDelegate<T> create(
             Path filePath, boolean useComplexSaveWithComments);
 }

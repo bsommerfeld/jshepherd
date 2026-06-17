@@ -13,5 +13,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.FIELD})
 public @interface Comment {
     /** The comments to the configuration value. */
-    String[] value() default {""};
+    String[] value() default {};
 }

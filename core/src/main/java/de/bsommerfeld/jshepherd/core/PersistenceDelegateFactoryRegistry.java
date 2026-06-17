@@ -28,7 +28,15 @@ public class PersistenceDelegateFactoryRegistry {
     public static PersistenceDelegateFactory getFactory(String fileExtension) {
         PersistenceDelegateFactory factory = factories.get(fileExtension.toLowerCase());
         if (factory == null) {
-            throw new ConfigurationException("Unsupported file extension: " + fileExtension);
+            if (factories.isEmpty()) {
+                throw new ConfigurationException(
+                        "Unsupported file extension: '" + fileExtension
+                                + "'. No format modules were found on the classpath/module path. "
+                                + "Add a format module (e.g. de.bsommerfeld.jshepherd:yaml, :json or :toml).");
+            }
+            throw new ConfigurationException(
+                    "Unsupported file extension: '" + fileExtension
+                            + "'. Supported extensions: " + String.join(", ", new TreeSet<>(factories.keySet())));
         }
         return factory;
     }

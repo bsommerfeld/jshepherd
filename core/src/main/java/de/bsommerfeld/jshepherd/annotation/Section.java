@@ -14,7 +14,9 @@ import java.lang.annotation.Target;
  * ConfigurablePojo).
  * Fields within the nested POJO can use {@link Key} and {@link Comment}
  * annotations
- * as usual.
+ * as usual. Section POJOs may themselves contain {@code @Section} fields —
+ * nesting is recursive (depth-capped at 16 to guard against cyclic
+ * references).
  * </p>
  *
  * <p>
@@ -22,8 +24,9 @@ import java.lang.annotation.Target;
  * </p>
  * <ul>
  * <li><b>YAML:</b> Rendered as nested indented block</li>
- * <li><b>TOML:</b> Rendered as {@code [table]} section</li>
+ * <li><b>TOML:</b> Rendered as {@code [table]} section ({@code [parent.child]} when nested)</li>
  * <li><b>JSON:</b> Rendered as nested object</li>
+ * <li><b>Properties:</b> Rendered as dotted key prefix ({@code section.key})</li>
  * </ul>
  *
  * <p>
