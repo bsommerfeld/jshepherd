@@ -183,4 +183,74 @@ class YamlSectionTest {
                     "Another nested field comment should be present");
         }
     }
+
+    @Nested
+    @DisplayName("Empty Collections (issue #12)")
+    class EmptyCollectionTests {
+
+        @Test
+        @DisplayName("Empty collections are written inline, not split across two lines")
+        void emptyCollectionsAreInline() throws IOException {
+            Path configPath = tempDir.resolve("empty-with-comments.yaml");
+
+            ConfigurationLoader.from(configPath)
+                    .withComments()
+                    .load(EmptyCollectionConfig::new);
+
+            String content = Files.readString(configPath);
+
+            assertFalse(content.contains("[\n"), "Empty list must not break the line after '['");
+            assertFalse(content.contains("{\n"), "Empty map must not break the line after '{'");
+
+            assertTrue(content.contains("root-list: []"), "Root list should be inline");
+            assertTrue(content.contains("root-map: {}"), "Root map should be inline");
+            assertTrue(content.contains("  list-of-items: []"), "Section list should be inline and indented");
+            assertTrue(content.contains("      list-of-items: []"),
+                    "List in a third-level section should keep the section's indent");
+            assertTrue(content.contains("      map-of-items: {}"),
+                    "Map in a third-level section should keep the section's indent");
+        }
+
+        @Test
+        @DisplayName("Empty collections in nested sections stay loadable")
+        void emptyCollectionsRoundTrip() throws IOException {
+            Path configPath = tempDir.resolve("empty-roundtrip.yaml");
+
+            ConfigurationLoader.from(configPath)
+                    .withComments()
+                    .load(EmptyCollectionConfig::new);
+
+            EmptyCollectionConfig reloaded = ConfigurationLoader.from(configPath)
+                    .withComments()
+                    .load(EmptyCollectionConfig::new);
+
+            assertTrue(reloaded.getRootList().isEmpty(), "Root list should reload as empty");
+            assertTrue(reloaded.getRootMap().isEmpty(), "Root map should reload as empty");
+            assertTrue(reloaded.getSectionFirst().getListOfItems().isEmpty(),
+                    "Section list should reload as empty");
+            assertTrue(reloaded.getSectionFirst().getFirst().getFirst().getListOfItems().isEmpty(),
+                    "Deeply nested list should reload as empty");
+            assertTrue(reloaded.getSectionFirst().getFirst().getFirst().getMapOfItems().isEmpty(),
+                    "Deeply nested map should reload as empty");
+        }
+
+        @Test
+        @DisplayName("Empty collections are inline without comments too")
+        void emptyCollectionsInlineWithoutComments() throws IOException {
+            Path configPath = tempDir.resolve("empty-simple.yaml");
+
+            ConfigurationLoader.from(configPath)
+                    .withoutComments()
+                    .load(EmptyCollectionConfig::new);
+
+            String content = Files.readString(configPath);
+
+            assertFalse(content.contains("[\n"), "Empty list must not break the line after '['");
+            assertFalse(content.contains("{\n"), "Empty map must not break the line after '{'");
+            // List.of() returns a shared singleton, so without special handling
+            // SnakeYAML emits the second occurrence as an alias to the first.
+            assertFalse(content.contains("&id"), "Empty collections must not be emitted as anchors");
+            assertFalse(content.contains("*id"), "Empty collections must not be emitted as aliases");
+        }
+    }
 }

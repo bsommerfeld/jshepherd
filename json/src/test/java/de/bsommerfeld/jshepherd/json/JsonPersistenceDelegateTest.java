@@ -37,6 +37,21 @@ class JsonPersistenceDelegateTest {
     }
 
     @Test
+    @DisplayName("Save - Internal ConfigurablePojo state is not written to the config file")
+    void save_shouldNotLeakInternalPojoState() throws IOException {
+        // Jackson picks up the inherited getLastLoadIssues()/isAutoReloadActive()
+        // getters and used to write them into the user's config (issue #12).
+        delegate.saveSimple(testConfig, configPath);
+
+        String content = Files.readString(configPath);
+
+        assertFalse(content.contains("lastLoadIssues"),
+                "Load-issue tracking is runtime state, not configuration");
+        assertFalse(content.contains("autoReloadActive"),
+                "Auto-reload state is runtime state, not configuration");
+    }
+
+    @Test
     @DisplayName("Save simple - Should create a valid JSON file with basic types")
     void saveSimple_shouldCreateValidJsonFile() throws IOException {
         // Arrange

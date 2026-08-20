@@ -84,7 +84,10 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
   private DumperOptions createDumperOptions() {
     DumperOptions options = new DumperOptions();
     options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-    options.setPrettyFlow(true);
+    // Empty collections have no block form, so they fall back to flow style.
+    // Pretty flow would break the line before the closing bracket and emit
+    // `key: [\n  ]` with an indent unrelated to the key (bsommerfeld/jshepherd#12).
+    options.setPrettyFlow(false);
     options.setIndent(2);
     options.setIndicatorIndent(1);
     options.setSplitLines(false);
@@ -193,27 +196,35 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
     if (value == null) {
       writer.println(" null");
+      return;
+    }
+
+    // Empty collections are written inline; letting the dumper indent them
+    // relative to its own (root) context would misplace the closing bracket.
+    if (value instanceof List && ((List<?>) value).isEmpty()) {
+      writer.println(" []");
+      return;
+    }
+    if (value instanceof Map && ((Map<?, ?>) value).isEmpty()) {
+      writer.println(" {}");
+      return;
+    }
+
+    String valueAsYaml = this.valueDumper.dump(value);
+
+    if (valueAsYaml.endsWith("\n")) {
+      valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - 1);
+    }
+
+    boolean isScalar = !(value instanceof List || value instanceof Map)
+        && !valueAsYaml.contains("\n");
+
+    if (isScalar) {
+      writer.println(" " + valueAsYaml.trim());
     } else {
-      String valueAsYaml = this.valueDumper.dump(value);
-
-      if (valueAsYaml.endsWith("\n")) {
-        valueAsYaml = valueAsYaml.substring(0, valueAsYaml.length() - 1);
-      }
-
-      boolean isScalarOrFlowCollection = !(value instanceof List || value instanceof Map)
-          && !valueAsYaml.contains("\n");
-      if (value instanceof List && ((List<?>) value).isEmpty())
-        isScalarOrFlowCollection = true;
-      if (value instanceof Map && ((Map<?, ?>) value).isEmpty())
-        isScalarOrFlowCollection = true;
-
-      if (isScalarOrFlowCollection) {
-        writer.println(" " + valueAsYaml.trim());
-      } else {
-        writer.println();
-        String nestedIndent = indent + "  ";
-        valueAsYaml.lines().forEach(line -> writer.println(nestedIndent + line));
-      }
+      writer.println();
+      String nestedIndent = indent + "  ";
+      valueAsYaml.lines().forEach(line -> writer.println(nestedIndent + line));
     }
   }
 

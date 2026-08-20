@@ -265,4 +265,89 @@ class SectionTestConfigs {
             return settings;
         }
     }
+
+    // ==================== EMPTY COLLECTIONS IN NESTED SECTIONS ====================
+
+    /**
+     * Reproduces bsommerfeld/jshepherd#12: empty collections used to be dumped
+     * as `key: [` / `]` across two lines with an indent taken from the dumper's
+     * own root context rather than from the key.
+     */
+    static class EmptyCollectionConfig extends ConfigurablePojo<EmptyCollectionConfig> {
+
+        @Key("root-list")
+        private List<String> rootList = List.of();
+
+        @Key("root-map")
+        private Map<String, String> rootMap = Map.of();
+
+        @Comment("Example section 1")
+        @Section("section-first")
+        private EmptySectionLevel1 sectionFirst = new EmptySectionLevel1();
+
+        EmptyCollectionConfig() {
+        }
+
+        List<String> getRootList() {
+            return rootList;
+        }
+
+        Map<String, String> getRootMap() {
+            return rootMap;
+        }
+
+        EmptySectionLevel1 getSectionFirst() {
+            return sectionFirst;
+        }
+    }
+
+    static class EmptySectionLevel1 {
+        @Key("list-of-items")
+        private List<String> listOfItems = List.of();
+
+        @Section("first")
+        private EmptySectionLevel2 first = new EmptySectionLevel2();
+
+        EmptySectionLevel1() {
+        }
+
+        List<String> getListOfItems() {
+            return listOfItems;
+        }
+
+        EmptySectionLevel2 getFirst() {
+            return first;
+        }
+    }
+
+    static class EmptySectionLevel2 {
+        @Section("first")
+        private EmptySectionLevel3 first = new EmptySectionLevel3();
+
+        EmptySectionLevel2() {
+        }
+
+        EmptySectionLevel3 getFirst() {
+            return first;
+        }
+    }
+
+    static class EmptySectionLevel3 {
+        @Key("list-of-items")
+        private List<String> listOfItems = List.of();
+
+        @Key("map-of-items")
+        private Map<String, String> mapOfItems = Map.of();
+
+        EmptySectionLevel3() {
+        }
+
+        List<String> getListOfItems() {
+            return listOfItems;
+        }
+
+        Map<String, String> getMapOfItems() {
+            return mapOfItems;
+        }
+    }
 }

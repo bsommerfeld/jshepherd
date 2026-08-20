@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.PropertyName;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.introspect.Annotated;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
@@ -268,6 +269,18 @@ class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
      * Handles @Key for regular fields and @Section for nested POJO fields.
      */
     private static class JShepherdAnnotationIntrospector extends JacksonAnnotationIntrospector {
+        @Override
+        public boolean hasIgnoreMarker(AnnotatedMember m) {
+            // Members declared on ConfigurablePojo itself are runtime plumbing
+            // (load issues, auto-reload state). Jackson picks them up via their
+            // public getters and would write them into the user's config file
+            // as "lastLoadIssues" / "autoReloadActive" (bsommerfeld/jshepherd#12).
+            if (m.getDeclaringClass() == ConfigurablePojo.class) {
+                return true;
+            }
+            return super.hasIgnoreMarker(m);
+        }
+
         @Override
         public PropertyName findNameForSerialization(Annotated a) {
             // Check @Section first (for nested POJOs)
