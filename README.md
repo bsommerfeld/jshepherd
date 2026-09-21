@@ -15,6 +15,7 @@ JShepherd is an annotation-based configuration management library for Java that 
 * **✅ Post-Load Validation** — `@PostInject` methods are called after loading, enabling validation or derived field computation
 * **💾 Live Reload & Persistence** — Call `config.reload()` or `config.save()` at any time
 * **👀 Auto-Reload** — Opt-in file watching: the POJO updates itself when the file changes on disk
+* **🙈 Hidden Fields** — `hide(...)`/`show(...)`/`bindVisibility(...)` keep debug/expert options out of the file until a condition of your choice unlocks them
 * **📚 Documentation Generation** — Auto-generated `.md` docs for formats without comment support (JSON)
 * **🔧 Type-Safe API** — Compile-time checked `save()` and `reload()` via self-referential generics (`ConfigurablePojo<T>`)
 * **🪶 Plain POJO Option** — Don't want to extend anything? Annotate with `@Configuration` and manage via a `Config<T>` handle
@@ -292,7 +293,7 @@ ttl-seconds = 300
 
 * Only fields annotated with `@Key` (or `@Section`) are persisted. `static` and `transient` fields are always ignored.
 * `@Key` without a value falls back to the field name.
-* `@PostInject` methods must be parameterless. Methods declared in superclasses are invoked as well; execution order is not guaranteed.
+* `@PostInject` methods take no parameters, or a `List<LoadIssue>` and/or a `FieldVisibility` parameter (see [Hidden Fields](#hidden-fields)). Methods declared in superclasses are invoked as well; execution order is not guaranteed.
 
 ## Supported Field Types
 
@@ -408,7 +409,7 @@ config.getLastLoadIssues();
 
 Everything works identically to the extends-based API: all annotations, all formats, nested sections, smart merging, auto-reload (`withAutoReload()` before `loadPlain`, listener/stop via the handle).
 
-> `@PostInject` methods may take either no parameters or a single `List<LoadIssue>` parameter — the latter is handy for plain POJOs, which have no `getLastLoadIssues()` method of their own. This works in both API styles.
+> `@PostInject` methods may take no parameters, a `List<LoadIssue>` and/or a `FieldVisibility` parameter — handy for plain POJOs, which have no `getLastLoadIssues()` or `show(...)`/`hide(...)` methods of their own. This works in both API styles.
 
 ## Auto-Reload
 
@@ -434,6 +435,76 @@ Details:
 * The POJO's own `save()` calls do **not** trigger a reload.
 * The listener runs on the watcher thread — keep it short and thread-safe.
 * A temporarily unparseable file (e.g. mid-edit) logs a warning and is retried on the next change; the watcher never dies.
+
+## Hidden Fields
+
+Some options — debug switches, expert tuning — should not clutter the file for regular users. `hide(...)` keeps a field or a whole section out of the file, `show(...)` brings it back. Set the initial state in the constructor and react to loaded values in `@PostInject`:
+
+```java
+public class ServerConfig extends ConfigurablePojo<ServerConfig> {
+
+    private static final String CURED_GATE = "cured-gate";
+
+    @Key("debug")
+    @Comment("Whether the debug mode is enabled or not")
+    private boolean debug = false;
+
+    @Key("max-count")
+    private double maxCount = 0.5;
+
+    @Key(CURED_GATE)
+    private boolean curedGate = false;
+
+    @Section("debug-options")
+    @Comment("Debug options, enabled through `debug`")
+    private DebugOptions debugOptions = new DebugOptions();
+
+    public ServerConfig() {
+        hide("debug-options", CURED_GATE);   // initial state — applies to the generated default file
+    }
+
+    @PostInject
+    private void updateVisibility() {
+        if (debug) show("debug-options"); else hide("debug-options");
+        if (maxCount >= 0.6) show(CURED_GATE); else hide(CURED_GATE);
+    }
+}
+```
+
+The generated file contains neither `debug-options` nor `cured-gate`. Once the user sets `debug: true`, the file becomes:
+
+```yaml
+# Whether the debug mode is enabled or not
+debug: true
+
+max-count: 0.5
+
+# Debug options, enabled through `debug`
+debug-options:
+  # Shows the referrals
+  show-referrals: true
+```
+
+When the visibility simply follows a condition, `bindVisibility(...)` does the same in one line per key — no `@PostInject` method, no initial state to keep in sync:
+
+```java
+public ServerConfig() {
+    bindVisibility("debug-options", () -> debug);
+    bindVisibility(CURED_GATE, () -> maxCount >= 0.6);
+}
+```
+
+The condition is evaluated right away, before every `save()`, and after every load, `reload()` or auto-reload.
+
+Details:
+
+* Keys are paths from the configuration root: `"log-changes"`, a section name like `"debug-options"`, or `"database.trace-sql"` for a key inside a section. An unknown key fails right away with a `ConfigurationException` — keep keys in constants shared with `@Key(...)` to stay typo-proof.
+* When `@PostInject` changes the visibility after a load, `reload()` or auto-reload, the file is **rewritten right away** — with `withAutoReload()` the options appear moments after the user saves `debug: true`. A file that already shows the right fields is left untouched.
+* `show(...)`/`hide(...)` can be called from anywhere (e.g. a setter); outside of `@PostInject` the change takes effect on the next `save()`.
+* A key bound with `bindVisibility(...)` follows its condition: `show(...)`/`hide(...)` calls for it only last until the condition is evaluated again.
+* Only writing is affected: a hidden field that is present in the file is still read, and dropped from the file on the next save.
+* Plain `@Configuration` POJOs declare a `FieldVisibility` parameter on the `@PostInject` method (`fields.hide("cured-gate")`, `fields.bindVisibility("cured-gate", () -> maxCount >= 0.6)`), or use `config.show(...)`/`config.hide(...)`/`config.bindVisibility("cured-gate", cfg -> cfg.getMaxCount() >= 0.6)` on the `Config<T>` handle — bound through the handle, the file follows on the next `save()` or `reload()`.
+* Works in all formats; for JSON, hidden fields are left out of the generated documentation as well.
 
 ## Error Handling & Logging
 
