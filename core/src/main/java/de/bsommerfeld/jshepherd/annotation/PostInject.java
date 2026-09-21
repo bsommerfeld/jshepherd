@@ -27,7 +27,8 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <p>Requirements: Methods must take no parameters. Multiple methods per class are allowed.
+ * <p>Requirements: Methods take no parameters, or a {@code List<LoadIssue>} and/or a
+ * {@code FieldVisibility} parameter. Multiple methods per class are allowed.
  * Execution order is not guaranteed.</p>
  */
 

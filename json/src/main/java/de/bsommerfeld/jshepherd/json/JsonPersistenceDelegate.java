@@ -2,15 +2,19 @@ package de.bsommerfeld.jshepherd.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.BeanDescription;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyName;
+import com.fasterxml.jackson.databind.SerializationConfig;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.introspect.Annotated;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
+import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.bsommerfeld.jshepherd.annotation.Comment;
@@ -18,6 +22,7 @@ import de.bsommerfeld.jshepherd.annotation.Key;
 import de.bsommerfeld.jshepherd.annotation.Section;
 import de.bsommerfeld.jshepherd.core.AbstractPersistenceDelegate;
 import de.bsommerfeld.jshepherd.core.ConfigurablePojo;
+import de.bsommerfeld.jshepherd.utils.ClassUtils;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -65,6 +70,10 @@ class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
         enumModule.addSerializer(Enum.class, new EnumNameSerializer());
         this.objectMapper.registerModule(enumModule);
 
+        SimpleModule visibilityModule = new SimpleModule("JShepherdVisibilityModule");
+        visibilityModule.setSerializerModifier(new HiddenFieldSerializerModifier());
+        this.objectMapper.registerModule(visibilityModule);
+
         // Deserialization already reads enum names by default — no extra config needed.
 
         // Warn user if comments are requested but not supported
@@ -87,6 +96,48 @@ class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
         @Override
         public void serialize(Enum value, JsonGenerator gen, SerializerProvider provider) throws IOException {
             gen.writeString(value.name());
+        }
+    }
+
+    /**
+     * Leaves hidden fields out of the output. Jackson caches serializers, so the
+     * visibility is checked on every write rather than when the serializer is
+     * built.
+     */
+    private class HiddenFieldSerializerModifier extends BeanSerializerModifier {
+        @Override
+        public List<BeanPropertyWriter> changeProperties(SerializationConfig config, BeanDescription beanDesc,
+                List<BeanPropertyWriter> beanProperties) {
+            beanProperties.replaceAll(writer -> {
+                Field field = findField(beanDesc.getBeanClass(), writer.getName());
+                return field != null ? new HideablePropertyWriter(writer, field) : writer;
+            });
+            return beanProperties;
+        }
+
+        private Field findField(Class<?> beanClass, String propertyName) {
+            for (Field field : ClassUtils.getAllFieldsInHierarchy(beanClass, ConfigurablePojo.class)) {
+                if (!shouldSkipField(field) && resolveSectionName(field).equals(propertyName)) {
+                    return field;
+                }
+            }
+            return null;
+        }
+    }
+
+    private class HideablePropertyWriter extends BeanPropertyWriter {
+        private final Field field;
+
+        HideablePropertyWriter(BeanPropertyWriter base, Field field) {
+            super(base);
+            this.field = field;
+        }
+
+        @Override
+        public void serializeAsField(Object bean, JsonGenerator gen, SerializerProvider prov) throws Exception {
+            if (!isHidden(field)) {
+                super.serializeAsField(bean, gen, prov);
+            }
         }
     }
 
@@ -164,12 +215,12 @@ class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
         // Root-level @Key fields
         boolean hasAnyDocumentedFields = false;
-        for (Field field : getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+        for (Field field : visibleOnly(getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class))) {
             hasAnyDocumentedFields |= documentField(writer, field, pojoInstance, "");
         }
 
         // @Section fields and their nested keys (recursive)
-        for (Field sectionField : getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+        for (Field sectionField : visibleOnly(getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class))) {
             hasAnyDocumentedFields |= documentSection(writer, sectionField, pojoInstance, "", 1);
         }
 
@@ -216,10 +267,10 @@ class JsonPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
         }
 
         boolean documented = false;
-        for (Field nestedField : getSectionPojoFields(sectionPojo)) {
+        for (Field nestedField : visibleOnly(getSectionPojoFields(sectionPojo))) {
             documented |= documentField(writer, nestedField, sectionPojo, sectionName + ".");
         }
-        for (Field subsectionField : getSectionPojoSubsectionFields(sectionPojo)) {
+        for (Field subsectionField : visibleOnly(getSectionPojoSubsectionFields(sectionPojo))) {
             documented |= documentSection(writer, subsectionField, sectionPojo, sectionName + ".", depth + 1);
         }
         return documented;

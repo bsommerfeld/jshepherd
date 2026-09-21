@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -58,6 +59,12 @@ public abstract class AbstractPersistenceDelegate<T> implements PersistenceDeleg
     protected final boolean useComplexSaveWithComments;
 
     private final List<LoadIssue> loadIssues = new ArrayList<>();
+
+    /** Visibility of a plain POJO's fields; a {@code ConfigurablePojo} carries its own. */
+    private volatile FieldVisibility plainPojoVisibility;
+
+    /** Snapshot of the hidden fields, taken at the start of every save. */
+    private volatile Set<Field> hiddenFields = Set.of();
 
     protected AbstractPersistenceDelegate(Path filePath, boolean useComplexSaveWithComments) {
         this.filePath = filePath;
@@ -98,6 +105,8 @@ public abstract class AbstractPersistenceDelegate<T> implements PersistenceDeleg
 
     @Override
     public final void save(T pojoInstance) {
+        hiddenFields = hiddenFieldsOf(pojoInstance);
+
         Path parentDir = filePath.getParent();
         Path tempFilePath = null;
         try {
@@ -114,7 +123,11 @@ public abstract class AbstractPersistenceDelegate<T> implements PersistenceDeleg
                 saveSimple(pojoInstance, tempFilePath);
             }
 
-            Files.move(tempFilePath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            // An unchanged file is left untouched, so re-synchronizing it (e.g. the
+            // field visibility on every startup) does not bump its modification time.
+            if (!Files.exists(filePath) || Files.mismatch(tempFilePath, filePath) != -1L) {
+                Files.move(tempFilePath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            }
             LOGGER.log(Level.FINE, () -> "Configuration saved to " + filePath);
         } catch (IOException e) {
             throw new ConfigurationException("Failed to save configuration to " + filePath, e);
@@ -427,6 +440,43 @@ public abstract class AbstractPersistenceDelegate<T> implements PersistenceDeleg
                 .filter(f -> !shouldSkipField(f))
                 .filter(this::isSection)
                 .toList();
+    }
+
+    // ==================== VISIBILITY UTILITIES ====================
+
+    /**
+     * Checks whether a field was hidden via {@link FieldVisibility} in the
+     * instance currently being saved and must not be written to the file.
+     * Loading is never restricted by this.
+     */
+    protected final boolean isHidden(Field field) {
+        return hiddenFields.contains(field);
+    }
+
+    /**
+     * Filters out the fields that must not be written to the file.
+     *
+     * @see #isHidden(Field)
+     */
+    protected final List<Field> visibleOnly(List<Field> fields) {
+        return fields.stream().filter(f -> !isHidden(f)).toList();
+    }
+
+    // Package-private: only the Config handle of a plain POJO should set this.
+    final void _setFieldVisibility(FieldVisibility visibility) {
+        this.plainPojoVisibility = visibility;
+    }
+
+    private Set<Field> hiddenFieldsOf(T pojoInstance) {
+        FieldVisibility visibility = pojoInstance instanceof ConfigurablePojo<?> configurablePojo
+                ? configurablePojo.fieldVisibility
+                : plainPojoVisibility;
+        if (visibility == null) {
+            return Set.of();
+        }
+        // Bound conditions may depend on values changed since the last evaluation.
+        visibility.applyBindings();
+        return visibility.hiddenFields();
     }
 
     // ==================== PRIVATE HELPERS ====================

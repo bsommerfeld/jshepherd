@@ -55,7 +55,7 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     propertyUtils.setBeanAccess(BEAN_ACCESS);
 
     DumperOptions mainDumperOptions = createDumperOptions();
-    Representer representer = new AlwaysMapRepresenter(mainDumperOptions);
+    Representer representer = new AlwaysMapRepresenter(mainDumperOptions, this::isVisibleProperty);
     representer.addClassTag(pojoClass, Tag.MAP);
     representer.setPropertyUtils(propertyUtils);
 
@@ -79,6 +79,15 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     valueDumperRepresenter.setPropertyUtils(propertyUtils);
 
     this.valueDumper = new Yaml(valueDumperRepresenter, valueDumperOptions);
+  }
+
+  /**
+   * Keeps hidden fields out of the plain dump.
+   */
+  private boolean isVisibleProperty(Property property) {
+    return !(property instanceof KeyAwareProperty keyAware)
+        || keyAware.field == null
+        || !isHidden(keyAware.field);
   }
 
   private DumperOptions createDumperOptions() {
@@ -156,7 +165,7 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       writeClassComments(writer, pojoInstance);
 
       // Write non-section fields first (root level)
-      List<Field> rootFields = getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class);
+      List<Field> rootFields = visibleOnly(getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class));
       for (int i = 0; i < rootFields.size(); i++) {
         Field field = rootFields.get(i);
         writeFieldWithComments(writer, field, pojoInstance, "");
@@ -166,7 +175,7 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       }
 
       // Write sections (recursively, for nested @Section fields)
-      List<Field> sectionFields = getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class);
+      List<Field> sectionFields = visibleOnly(getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class));
       for (Field sectionField : sectionFields) {
         writer.println();
         writeSectionWithComments(writer, sectionField, pojoInstance, "", 1);
@@ -257,7 +266,7 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
     // Write nested fields with one extra indent level
     String childIndent = indent + "  ";
-    List<Field> nestedFields = getSectionPojoFields(sectionPojo);
+    List<Field> nestedFields = visibleOnly(getSectionPojoFields(sectionPojo));
     for (int i = 0; i < nestedFields.size(); i++) {
       Field nestedField = nestedFields.get(i);
       writeFieldWithComments(writer, nestedField, sectionPojo, childIndent);
@@ -267,7 +276,7 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     }
 
     // Recurse into nested sections
-    for (Field subsectionField : getSectionPojoSubsectionFields(sectionPojo)) {
+    for (Field subsectionField : visibleOnly(getSectionPojoSubsectionFields(sectionPojo))) {
       writer.println();
       writeSectionWithComments(writer, subsectionField, sectionPojo, childIndent, depth + 1);
     }
@@ -353,24 +362,27 @@ class YamlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
 
   private static class KeyAwareProperty extends Property {
     private final Property delegate;
+    private final Field field;
 
     public KeyAwareProperty(Property delegate, Class<?> beanClass) {
       super(resolveName(delegate, beanClass), delegate.getType());
       this.delegate = delegate;
+      this.field = findField(delegate, beanClass);
+    }
+
+    // Find corresponding field for annotation lookup
+    private static Field findField(Property delegate, Class<?> beanClass) {
+      List<Field> fields = ClassUtils.getAllFieldsInHierarchy(beanClass, Object.class);
+      for (Field f : fields) {
+        if (f.getName().equals(delegate.getName())) {
+          return f;
+        }
+      }
+      return null;
     }
 
     private static String resolveName(Property delegate, Class<?> beanClass) {
-      String propName = delegate.getName();
-
-      // Find corresponding field for annotation lookup
-      Field field = null;
-      List<Field> fields = ClassUtils.getAllFieldsInHierarchy(beanClass, Object.class);
-      for (Field f : fields) {
-        if (f.getName().equals(propName)) {
-          field = f;
-          break;
-        }
-      }
+      Field field = findField(delegate, beanClass);
 
       if (field != null) {
         // Check @Section first (takes precedence for nested POJOs)

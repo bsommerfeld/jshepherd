@@ -1,6 +1,8 @@
 package de.bsommerfeld.jshepherd.core;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Default {@link Config} implementation backing the plain-POJO API.
@@ -9,6 +11,7 @@ final class ConfigHandle<T> implements Config<T> {
 
     private final T instance;
     private final PersistenceDelegate<T> delegate;
+    private final FieldVisibility fieldVisibility;
 
     private volatile ConfigurationWatcher watcher;
     private volatile Runnable autoReloadListener;
@@ -16,6 +19,10 @@ final class ConfigHandle<T> implements Config<T> {
     ConfigHandle(T instance, PersistenceDelegate<T> delegate) {
         this.instance = instance;
         this.delegate = delegate;
+        this.fieldVisibility = new FieldVisibility(instance);
+        if (delegate instanceof AbstractPersistenceDelegate<T> abstractDelegate) {
+            abstractDelegate._setFieldVisibility(fieldVisibility);
+        }
     }
 
     @Override
@@ -26,6 +33,7 @@ final class ConfigHandle<T> implements Config<T> {
     @Override
     public void save() {
         delegate.save(instance);
+        fieldVisibility.markWritten();
 
         // Our own write must not be mistaken for an external change.
         ConfigurationWatcher activeWatcher = this.watcher;
@@ -37,7 +45,36 @@ final class ConfigHandle<T> implements Config<T> {
     @Override
     public void reload() {
         delegate.reload(instance);
-        PostInjectInvoker.invoke(instance, null, delegate.getLastLoadIssues());
+        invokePostInjectMethods();
+    }
+
+    /**
+     * Runs the {@code @PostInject} methods, then rewrites the file if they (or the
+     * bound conditions) changed the field visibility compared to what the file
+     * shows.
+     */
+    void invokePostInjectMethods() {
+        PostInjectInvoker.invoke(instance, null, delegate.getLastLoadIssues(), fieldVisibility);
+        fieldVisibility.applyBindings();
+        if (fieldVisibility.isFileOutdated()) {
+            save();
+        }
+    }
+
+    @Override
+    public void show(String... keys) {
+        fieldVisibility.show(keys);
+    }
+
+    @Override
+    public void hide(String... keys) {
+        fieldVisibility.hide(keys);
+    }
+
+    @Override
+    public void bindVisibility(String key, Predicate<? super T> visibleWhen) {
+        Objects.requireNonNull(visibleWhen, "visibleWhen");
+        fieldVisibility.bindVisibility(key, () -> visibleWhen.test(instance));
     }
 
     @Override

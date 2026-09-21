@@ -1,6 +1,7 @@
 package de.bsommerfeld.jshepherd.core;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * Abstract base class for configuration POJOs that can be saved and reloaded.
@@ -39,6 +40,7 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
     transient PersistenceDelegate<SELF> persistenceDelegate;
     transient volatile ConfigurationWatcher watcher;
     transient volatile Runnable autoReloadListener;
+    transient final FieldVisibility fieldVisibility = new FieldVisibility(this);
 
     // Package-private: only ConfigurationLoader should set this.
     @SuppressWarnings("unchecked") // The delegate passed will be specific to SELF
@@ -87,8 +89,17 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
         return lastLoadIssues;
     }
 
+    /**
+     * Runs the {@code @PostInject} methods, then rewrites the file if they (or the
+     * bound conditions) changed the field visibility compared to what the file
+     * shows.
+     */
     final void _invokePostInjectMethods() {
-        PostInjectInvoker.invoke(this, ConfigurablePojo.class, lastLoadIssues);
+        PostInjectInvoker.invoke(this, ConfigurablePojo.class, lastLoadIssues, fieldVisibility);
+        fieldVisibility.applyBindings();
+        if (fieldVisibility.isFileOutdated()) {
+            save();
+        }
     }
 
     /**
@@ -100,6 +111,7 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
             throw new IllegalStateException("Configuration POJO not properly initialized. Cannot save.");
         }
         persistenceDelegate.save((SELF) this); // 'this' is cast to its concrete type SELF
+        fieldVisibility.markWritten();
 
         // Our own write must not be mistaken for an external change.
         ConfigurationWatcher activeWatcher = this.watcher;
@@ -112,6 +124,10 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
      * Reloads the state of this configuration object from its persistent store. The
      * fields of this instance will be
      * updated with the reloaded values.
+     *
+     * <p>If the {@code @PostInject} methods {@link #show(String...) show} or
+     * {@link #hide(String...) hide} fields in response to the reloaded values,
+     * the file is rewritten right away.</p>
      */
     @SuppressWarnings("unchecked")
     public void reload() {
@@ -120,6 +136,45 @@ public abstract class ConfigurablePojo<SELF extends ConfigurablePojo<SELF>> {
         }
         persistenceDelegate.reload((SELF) this);
         _invokePostInjectMethods();
+    }
+
+    // ==================== FIELD VISIBILITY ====================
+
+    /**
+     * Makes the given keys (or sections) appear in the configuration file again.
+     * See {@link FieldVisibility} for the key syntax and semantics.
+     *
+     * @throws ConfigurationException if a key does not exist in this configuration
+     */
+    public void show(String... keys) {
+        fieldVisibility.show(keys);
+    }
+
+    /**
+     * Leaves the given keys (or sections) out of the configuration file, e.g.
+     * debug options that stay hidden until another setting unlocks them. Call
+     * it in the constructor to define the initial state and in a
+     * {@code @PostInject} method to react to loaded values. See
+     * {@link FieldVisibility} for the key syntax and semantics.
+     *
+     * @throws ConfigurationException if a key does not exist in this configuration
+     */
+    public void hide(String... keys) {
+        fieldVisibility.hide(keys);
+    }
+
+    /**
+     * Binds the visibility of the given key (or section) to a condition, e.g.
+     * {@code bindVisibility("debug-options", () -> debug)} in the constructor:
+     * the key appears in the file while the condition holds and is left out
+     * otherwise — no {@code @PostInject} method needed. See
+     * {@link FieldVisibility#bindVisibility(String, BooleanSupplier)} for when
+     * the condition is evaluated.
+     *
+     * @throws ConfigurationException if the key does not exist in this configuration
+     */
+    public void bindVisibility(String key, BooleanSupplier visibleWhen) {
+        fieldVisibility.bindVisibility(key, visibleWhen);
     }
 
     // ==================== AUTO-RELOAD ====================

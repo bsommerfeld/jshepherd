@@ -132,7 +132,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
   private void writeSimpleFields(PrintWriter writer, T pojoInstance) {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     for (Field field : fields) {
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null || isSectionField(field))
@@ -156,7 +156,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     boolean firstTable = true;
     for (Field field : fields) {
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null || isSectionField(field))
@@ -185,7 +185,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     for (int i = 0; i < fields.size(); i++) {
       Field field = fields.get(i);
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null || isSectionField(field))
@@ -204,7 +204,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
           boolean addBlankLine = false;
           for (int k = i + 1; k < fields.size(); k++) {
             Field next = fields.get(k);
-            if (shouldSkipField(next) || next.getAnnotation(Key.class) == null)
+            if (shouldSkipField(next) || isHidden(next) || next.getAnnotation(Key.class) == null)
               continue;
             if (isSectionField(next))
               break;
@@ -232,7 +232,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     boolean firstTable = true;
     for (Field field : fields) {
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       Key keyAnnotation = field.getAnnotation(Key.class);
       if (keyAnnotation == null || isSectionField(field))
@@ -262,7 +262,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     boolean firstTable = true;
     for (Field field : fields) {
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       if (!isSectionField(field))
         continue;
@@ -293,7 +293,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoInstance.getClass(), ConfigurablePojo.class);
     boolean firstTable = true;
     for (Field field : fields) {
-      if (shouldSkipField(field))
+      if (shouldSkipField(field) || isHidden(field))
         continue;
       if (!isSectionField(field))
         continue;
@@ -464,7 +464,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     if (nestedPojo == null)
       return;
 
-    for (Field nf : getSectionPojoFields(nestedPojo)) {
+    for (Field nf : visibleOnly(getSectionPojoFields(nestedPojo))) {
       if (withComments) {
         writeFieldComments(writer, nf);
       }
@@ -480,7 +480,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     }
 
     // Recurse into nested sections as dotted tables ([parent.child])
-    for (Field subsectionField : getSectionPojoSubsectionFields(nestedPojo)) {
+    for (Field subsectionField : visibleOnly(getSectionPojoSubsectionFields(nestedPojo))) {
       try {
         subsectionField.setAccessible(true);
         Object subPojo = subsectionField.get(nestedPojo);

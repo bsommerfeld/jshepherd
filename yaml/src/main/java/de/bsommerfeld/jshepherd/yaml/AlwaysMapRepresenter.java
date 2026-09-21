@@ -4,12 +4,14 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.introspector.Property;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
 import org.yaml.snakeyaml.nodes.SequenceNode;
 import org.yaml.snakeyaml.nodes.Tag;
 import org.yaml.snakeyaml.representer.Representer;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Custom SnakeYAML Representer that ensures all JavaBeans are represented as YAML maps
@@ -18,8 +20,19 @@ import java.util.Set;
  */
 class AlwaysMapRepresenter extends Representer {
 
+    private final Predicate<Property> propertyFilter;
+
     AlwaysMapRepresenter(DumperOptions options) {
+        this(options, property -> true);
+    }
+
+    /**
+     * @param propertyFilter JavaBean properties failing this filter are left out
+     *                       of the output
+     */
+    AlwaysMapRepresenter(DumperOptions options, Predicate<Property> propertyFilter) {
         super(options);
+        this.propertyFilter = propertyFilter;
         // Be lenient with unknown properties when introspecting beans
         this.getPropertyUtils().setSkipMissingProperties(true);
 
@@ -65,6 +78,15 @@ class AlwaysMapRepresenter extends Representer {
      */
     private void forgetIdentity(Object value) {
         this.representedObjects.remove(value);
+    }
+
+    @Override
+    protected NodeTuple representJavaBeanProperty(Object javaBean, Property property, Object propertyValue,
+            Tag customTag) {
+        if (!propertyFilter.test(property)) {
+            return null; // SnakeYAML skips properties represented as null
+        }
+        return super.representJavaBeanProperty(javaBean, property, propertyValue, customTag);
     }
 
     @Override

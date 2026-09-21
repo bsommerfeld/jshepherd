@@ -206,11 +206,11 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
             }
 
             boolean first = true;
-            for (Field field : getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+            for (Field field : visibleOnly(getNonSectionFields(pojoInstance.getClass(), ConfigurablePojo.class))) {
                 first = writeField(writer, field, pojoInstance, "", withComments, first);
             }
 
-            for (Field sectionField : getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class)) {
+            for (Field sectionField : visibleOnly(getSectionFields(pojoInstance.getClass(), ConfigurablePojo.class))) {
                 first = writeSection(writer, sectionField, pojoInstance, "", withComments, first, 1);
             }
         } catch (IOException e) {
@@ -245,10 +245,10 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
             }
             String prefix = parentPrefix + resolveSectionName(sectionField) + ".";
             boolean firstNested = true;
-            for (Field nestedField : getSectionPojoFields(sectionPojo)) {
+            for (Field nestedField : visibleOnly(getSectionPojoFields(sectionPojo))) {
                 firstNested = writeField(writer, nestedField, sectionPojo, prefix, withComments, firstNested);
             }
-            for (Field subsectionField : getSectionPojoSubsectionFields(sectionPojo)) {
+            for (Field subsectionField : visibleOnly(getSectionPojoSubsectionFields(sectionPojo))) {
                 writeSection(writer, subsectionField, sectionPojo, prefix, withComments, false, depth + 1);
             }
         } catch (Exception e) {

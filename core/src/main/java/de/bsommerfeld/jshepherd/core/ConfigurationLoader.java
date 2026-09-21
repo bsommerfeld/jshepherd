@@ -33,6 +33,9 @@ public class ConfigurationLoader {
 
         T pojoInstance = delegate.loadInitial(defaultPojoSupplier);
         pojoInstance._setPersistenceDelegate(delegate);
+        // Until @PostInject says otherwise, the file is taken to show the
+        // visibility defined in the constructor.
+        pojoInstance.fieldVisibility.markWritten();
         pojoInstance._invokePostInjectMethods();
 
         return pojoInstance;
@@ -173,9 +176,9 @@ public class ConfigurationLoader {
 
             PersistenceDelegate<T> delegate = determinePersistenceDelegate(filePath, useComments);
             T instance = delegate.loadInitial(defaultPojoSupplier);
-            PostInjectInvoker.invoke(instance, null, delegate.getLastLoadIssues());
-
             ConfigHandle<T> handle = new ConfigHandle<>(instance, delegate);
+            handle.invokePostInjectMethods();
+
             if (autoReloadInterval != null) {
                 ConfigurationWatcher watcher = new ConfigurationWatcher(filePath, autoReloadInterval, () -> {
                     handle.reload();
