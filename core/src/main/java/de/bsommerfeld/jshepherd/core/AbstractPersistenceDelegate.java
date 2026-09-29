@@ -285,13 +285,17 @@ public abstract class AbstractPersistenceDelegate<T> implements PersistenceDeleg
         }
 
         if (value instanceof Map<?, ?> map && Map.class.isAssignableFrom(targetType)) {
+            // Keys arrive as strings in most formats (e.g. enum keys by constant name)
+            Class<?> keyType = resolveGenericClass(field, 0);
             Class<?> valueType = resolveGenericClass(field, 1);
-            if (valueType == null) {
+            if (keyType == null && valueType == null) {
                 return value;
             }
             Map<Object, Object> converted = new LinkedHashMap<>();
             for (Map.Entry<?, ?> entry : map.entrySet()) {
-                converted.put(entry.getKey(), convertNumericIfNeeded(entry.getValue(), valueType));
+                Object key = keyType != null ? convertNumericIfNeeded(entry.getKey(), keyType) : entry.getKey();
+                Object val = valueType != null ? convertNumericIfNeeded(entry.getValue(), valueType) : entry.getValue();
+                converted.put(key, val);
             }
             return converted;
         }

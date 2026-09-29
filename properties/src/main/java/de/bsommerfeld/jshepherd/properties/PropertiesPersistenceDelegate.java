@@ -102,7 +102,8 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
             Class<?> type = field.getType();
 
             if (Map.class.isAssignableFrom(type)) {
-                Map<String, Object> map = readMapEntries(props, key + ".", resolveGenericClass(field, 1));
+                Map<Object, Object> map = readMapEntries(props, key + ".",
+                        resolveGenericClass(field, 0), resolveGenericClass(field, 1));
                 if (map != null) {
                     field.set(target, map);
                 }
@@ -153,9 +154,12 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     /**
      * Collects all entries below the given dotted prefix into a map, or returns
      * null if the file contains none (so existing defaults are preserved).
+     * Keys and values are converted to the map's declared generic types
+     * (e.g. enum keys stored by constant name).
      */
-    private Map<String, Object> readMapEntries(Properties props, String prefix, Class<?> valueType) {
-        Map<String, Object> map = null;
+    private Map<Object, Object> readMapEntries(Properties props, String prefix, Class<?> keyType,
+            Class<?> valueType) {
+        Map<Object, Object> map = null;
         for (String name : props.stringPropertyNames()) {
             if (!name.startsWith(prefix)) {
                 continue;
@@ -165,7 +169,8 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
             }
             String subKey = name.substring(prefix.length());
             String raw = props.getProperty(name);
-            map.put(subKey, valueType != null ? convertScalar(raw, valueType) : raw);
+            map.put(keyType != null ? convertScalar(subKey, keyType) : subKey,
+                    valueType != null ? convertScalar(raw, valueType) : raw);
         }
         return map;
     }
@@ -285,7 +290,7 @@ class PropertiesPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
         String key = prefix + resolveKey(field);
         if (value instanceof Map<?, ?> map) {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
-                writeEntry(writer, key + "." + entry.getKey(), entry.getValue());
+                writeEntry(writer, key + "." + serializeValue(entry.getKey()), entry.getValue());
             }
         } else {
             writeEntry(writer, key, value);

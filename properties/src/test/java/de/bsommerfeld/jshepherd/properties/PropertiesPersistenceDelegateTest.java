@@ -124,7 +124,58 @@ class PropertiesPersistenceDelegateTest {
         assertFalse(content.contains("#"), "Simple save should not contain comments, got:\n" + content);
     }
 
+    @Test
+    @DisplayName("Round-trip - Enum-keyed maps are written by constant name and reload as enum keys")
+    void saveAndLoad_shouldRoundTripEnumKeyedMaps() throws Exception {
+        Path enumPath = tempDir.resolve("enum-map.properties");
+        PropertiesPersistenceDelegate<EnumMapConfig> enumDelegate = new PropertiesPersistenceDelegate<>(enumPath, true);
+
+        enumDelegate.saveWithComments(new EnumMapConfig(), enumPath);
+
+        String content = Files.readString(enumPath);
+        assertTrue(content.contains("default_flags.MOBS=true"), "Enum key should use constant name, got:\n" + content);
+        assertTrue(content.contains("quarters.weights.EXPLOSIONS=3"), "Section map should use constant name, got:\n" + content);
+        assertFalse(content.contains("Mobs"), "toString() must not be used for keys, got:\n" + content);
+
+        EnumMapConfig loaded = new EnumMapConfig();
+        loaded.defaultFlags = Map.of();
+        loaded.quarters.weights = Map.of();
+        assertTrue(enumDelegate.tryLoadFromFile(loaded));
+
+        assertEquals(Map.of(Flag.MOBS, true, Flag.PVP, false), loaded.defaultFlags);
+        assertEquals(Map.of(Flag.EXPLOSIONS, 3), loaded.quarters.weights);
+        assertEquals(Boolean.TRUE, loaded.defaultFlags.get(Flag.MOBS), "Lookup by enum constant should work");
+    }
+
     enum Mode {SLOW, FAST}
+
+    enum Flag {
+        PVP("PVP"), MOBS("Mobs"), EXPLOSIONS("Explosions");
+
+        private final String commonName;
+
+        Flag(String commonName) {
+            this.commonName = commonName;
+        }
+
+        @Override
+        public String toString() {
+            return commonName;
+        }
+    }
+
+    private static class EnumMapConfig extends ConfigurablePojo<EnumMapConfig> {
+        @Key("default_flags")
+        private Map<Flag, Boolean> defaultFlags = Map.of(Flag.MOBS, true, Flag.PVP, false);
+
+        @Section("quarters")
+        private QuarterSettings quarters = new QuarterSettings();
+    }
+
+    private static class QuarterSettings {
+        @Key("weights")
+        private Map<Flag, Integer> weights = Map.of(Flag.EXPLOSIONS, 3);
+    }
 
     @Comment("Test configuration")
     private static class TestConfig extends ConfigurablePojo<TestConfig> {

@@ -373,8 +373,11 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       return;
     }
     Map<String, Object> map = new LinkedHashMap<>();
-    if (pojoOrMap instanceof Map) {
-      map.putAll((Map) pojoOrMap);
+    if (pojoOrMap instanceof Map<?, ?> source) {
+      // Keys may be non-strings (e.g. enums), so render them explicitly
+      for (Map.Entry<?, ?> entry : source.entrySet()) {
+        map.put(formatMapKey(entry.getKey()), entry.getValue());
+      }
     } else {
       // Reflect POJO
       List<Field> fields = ClassUtils.getAllFieldsInHierarchy(pojoOrMap.getClass(), ConfigurablePojo.class); // Or just
@@ -445,7 +448,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     if (map.isEmpty())
       return;
     for (Map.Entry<?, ?> entry : map.entrySet()) {
-      String entryKey = entry.getKey().toString();
+      String entryKey = formatMapKey(entry.getKey());
       Object entryValue = entry.getValue();
       // Reuse logic? writeTomlValue writes 'key = value\n'.
       writeTomlValue(writer, entryKey, entryValue);
@@ -514,6 +517,14 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
     return "\"" + escapeString(key) + "\"";
   }
 
+  /**
+   * Renders a map key as a string. Enum keys use their constant name rather
+   * than toString() so they convert back to the enum on load.
+   */
+  private String formatMapKey(Object key) {
+    return key instanceof Enum<?> ? serializeEnumValue(key) : String.valueOf(key);
+  }
+
   private String escapeString(String str) {
     return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t",
         "\\t");
@@ -539,8 +550,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
         field.setAccessible(true);
         Class<?> fieldType = field.getType();
         if (Map.class.isAssignableFrom(fieldType)) {
-          Map<String, Object> javaMap = convertTomlTableToMap(tbl);
-          field.set(instance, javaMap);
+          field.set(instance, convertValueForField(convertTomlTableToMap(tbl), field));
         } else {
           // Instantiating Nested POJO
           Object target = field.get(instance);
@@ -623,7 +633,7 @@ class TomlPersistenceDelegate<T> extends AbstractPersistenceDelegate<T> {
       try {
         subsectionField.setAccessible(true);
         if (Map.class.isAssignableFrom(subsectionField.getType())) {
-          subsectionField.set(target, convertTomlTableToMap(subTbl));
+          subsectionField.set(target, convertValueForField(convertTomlTableToMap(subTbl), subsectionField));
           continue;
         }
         Object subPojo = subsectionField.get(target);
